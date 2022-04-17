@@ -1,0 +1,6 @@
+{
+  "name": "mitata",
+  "type": "module",
+  "version": "0.0.6",
+  "main": "src/cli.mjs"
+}
