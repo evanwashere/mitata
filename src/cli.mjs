@@ -150,14 +150,18 @@ export async function run(opts = {}) {
 
   b: {
     let _f = false;
+    let _b = false;
     for (const b of benchmarks) {
       if (b.group) continue;
+      if (b.baseline) _b = true;
 
       _f = true;
-      try { console.log(table.benchmark(b.name, !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect), opts)); }
+      try { console.log(table.benchmark(b.name, b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect), opts)); }
 
       catch (err) { console.log(table.benchmark_error(b.name, err, opts), '\n'); break b; }
     }
+
+    if (_b) console.log('\n' + table.summary(benchmarks.filter(b => null === b.group), opts));
 
     for (const group of groups) {
       if (_f) console.log('');
