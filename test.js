@@ -1,6 +1,7 @@
 import { run, bench, group, baseline } from '.';
 
 bench('noop', () => {});
+baseline('noop2', () => {});
 
 group('a', () => {
   bench('noop', () => {});
