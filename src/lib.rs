@@ -65,10 +65,7 @@ pub mod cpu {
 
     sysctl.arg("-n");
     sysctl.arg("machdep.cpu.brand_string");
-
-    unsafe {
-      return std::str::from_utf8_unchecked(&sysctl.output().map_or(Vec::from("unknown"), |x| x.stdout)).trim().to_string();
-    }
+    return std::str::from_utf8(&sysctl.output().map_or(Vec::from("unknown"), |x| x.stdout)).unwrap().trim().to_string();
   }
 
   pub fn windows() -> String {
@@ -78,16 +75,14 @@ pub mod cpu {
     wmi.arg("get");
     wmi.arg("name");
 
-    unsafe {
-      return match wmi.output() {
-        Err(_) => String::from("unknown"),
+    return match wmi.output() {
+      Err(_) => String::from("unknown"),
 
-        Ok(x) => {
-          let x = String::from_utf8_unchecked(x.stdout);
-          return x.lines().nth(2).unwrap_or("unknown").trim().to_string();
-        },
-      };
-    }
+      Ok(x) => {
+        let x = String::from_utf8_lossy(&x.stdout);
+        return x.lines().nth(1).unwrap_or("unknown").trim().to_string();
+      },
+    };
   }
 
   pub fn linux() -> String {
