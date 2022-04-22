@@ -3,7 +3,7 @@ import { run, bench, group, baseline } from '.';
 bench('noop', () => {});
 baseline('noop2', () => {});
 
-group('a', () => {
+group({ name: 'a', summary: false }, () => {
   bench('noop', () => {});
   bench('noop', () => {});
   bench('noop', () => {});
