@@ -142,7 +142,7 @@ async function cpu() {
   })[runtime()]();
 }
 
-globalThis.process?.on?.('beforeExit', run);
+globalThis.process?.on?.('beforeExit', () => run({}));
 
 export async function run(opts = {}) {
   if (ran) return;

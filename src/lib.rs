@@ -305,7 +305,7 @@ pub mod bench {
       }
 
       let mut c = 0;
-      let mut iterations: isize = 10;
+      let mut iterations: isize = 4;
       let mut budget = std::time::Duration::from_millis(10);
 
       loop {

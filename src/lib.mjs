@@ -40,7 +40,7 @@ export function sync(t, fn, collect = false) {
     }
 
     let c = 0;
-    iterations = 10;
+    iterations = 4;
     let budget = 10 * 1e6;
 
     while (0 < budget || 0 < iterations--) {
@@ -142,7 +142,7 @@ export async function async(t, fn, collect = false) {
     }
 
     let c = 0;
-    iterations = 10;
+    iterations = 4;
     let budget = 10 * 1e6;
 
     while (0 < budget || 0 < iterations--) {
