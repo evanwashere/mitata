@@ -11,7 +11,7 @@ const AsyncFunction = (async () => { }).constructor;
 
 export function group(name, cb) {
   const o = {
-    summary: !!name.summary ?? true,
+    summary: name.summary ?? true,
     name: 'string' === typeof name ? name : name.name,
   };
 
