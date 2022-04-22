@@ -4,13 +4,21 @@ import * as table from '../reporter/table.mjs';
 
 let g = null;
 let ran = false;
+const summarys = {};
 const benchmarks = [];
 const groups = new Set;
 const AsyncFunction = (async () => { }).constructor;
 
 export function group(name, cb) {
-  g = name;
-  groups.add(name);
+  const o = {
+    summary: !!name.summary ?? true,
+    name: 'string' === typeof name ? name : name.name,
+  };
+
+  g = o.name;
+  groups.add(o.name);
+  summarys[g] = o.summary;
+
   (cb(), g = null);
 }
 
@@ -158,7 +166,7 @@ export async function run(opts = {}) {
       _f = true;
       try { console.log(table.benchmark(b.name, b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect), opts)); }
 
-      catch (err) { console.log(table.benchmark_error(b.name, err, opts), '\n'); break b; }
+      catch (err) { console.log(table.benchmark_error(b.name, err, opts)); break b; }
     }
 
     if (_b) console.log('\n' + table.summary(benchmarks.filter(b => null === b.group), opts));
@@ -174,7 +182,7 @@ export async function run(opts = {}) {
         catch (err) { console.log(table.benchmark_error(b.name, err, opts)); break b; }
       }
 
-      console.log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
+      if (summarys[group]) console.log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
     }
   }
 }
