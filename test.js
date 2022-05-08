@@ -12,6 +12,7 @@ group({ name: 'a', summary: false }, () => {
 
 await run({
   avg: true,
+  json: true,
   colors: true,
   min_max: true,
   collect: false,
