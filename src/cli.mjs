@@ -146,15 +146,22 @@ globalThis.process?.on?.('beforeExit', () => run({}));
 
 export async function run(opts = {}) {
   if (ran) return;
+  const json = opts.json ? {} : null;
 
   ran = true;
   opts.colors = opts.colors || true;
   const collect = opts.collect || false;
   opts.size = table.size(benchmarks.map(b => b.name));
-  console.log(kleur.gray(opts.colors, `cpu: ${await cpu()}`));
-  console.log(kleur.gray(opts.colors, `runtime: ${runtime()} ${version()}`.trim() + ` (${os()})`), '\n');
 
-  console.log(table.header(opts)); console.log(table.br(opts));
+  if (json) {
+    json.cpu = await cpu();
+    json.runtime = `${runtime()} ${version()}`.trim() + ` (${os()})`;
+  } else {
+    console.log(kleur.gray(opts.colors, `cpu: ${await cpu()}`));
+    console.log(kleur.gray(opts.colors, `runtime: ${runtime()} ${version()}`.trim() + ` (${os()})`), '\n');
+  }
+
+  if (!json) console.log(table.header(opts)); if (!json) console.log(table.br(opts));
 
   b: {
     let _f = false;
@@ -164,25 +171,44 @@ export async function run(opts = {}) {
       if (b.baseline) _b = true;
 
       _f = true;
-      try { console.log(table.benchmark(b.name, b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect), opts)); }
 
-      catch (err) { console.log(table.benchmark_error(b.name, err, opts)); break b; }
+      try {
+        b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
+
+        if (!json) console.log(table.benchmark(b.name, b,stats, opts));
+      }
+
+      catch (err) {
+        b.error = {  stack: err.stack, message: err.message };
+        if (!json) console.log(table.benchmark_error(b.name, err, opts));
+      }
     }
 
-    if (_b) console.log('\n' + table.summary(benchmarks.filter(b => null === b.group), opts));
+    if (_b && !json) console.log('\n' + table.summary(benchmarks.filter(b => null === b.group), opts));
 
     for (const group of groups) {
-      if (_f) console.log('');
+      if (_f && !json) console.log('');
 
       _f = true;
       for (const b of benchmarks) {
         if (group !== b.group) continue;
-        try { console.log(table.benchmark(b.name, b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect), opts)); }
 
-        catch (err) { console.log(table.benchmark_error(b.name, err, opts)); break b; }
+        try {
+          b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
+
+          if (!json) console.log(table.benchmark(b.name, b.stats, opts));
+        }
+
+        catch (err) {
+          b.error = {  stack: err.stack, message: err.message };
+          if (!json) console.log(table.benchmark_error(b.name, err, opts));
+        }
       }
 
-      if (summarys[group]) console.log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
+      if (summarys[group] && !json) console.log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
     }
+
+    json.benchmarks = benchmarks;
+    if (json) console.log(JSON.stringify(json));
   }
 }
