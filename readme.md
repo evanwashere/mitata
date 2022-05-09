@@ -38,8 +38,36 @@ await run({
   percentiles: false, // enable/disable percentiles column (default: true)
 });
 ```
+output:
 
-![preview.png](https://cdn.discordapp.com/attachments/640955857038999552/973337478050230312/unknown.png)
+<details>
+  <summary>terminal screenshot</summary>
+  
+  ![preview.png](https://cdn.discordapp.com/attachments/640955857038999552/973337478050230312/unknown.png)
+</details>
+
+```js
+cpu: unknown
+runtime: bun 0.0.79 (arm64-darwin) 
+
+benchmark              time (avg)             (min … max)
+---------------------------------------------------------
+noop               321.41 ps/iter    (304.1 ps … 8.55 ns)
+noop2              389.13 ps/iter   (304.1 ps … 11.13 ns)
+
+baseline           788.15 ps/iter    (304.1 ps … 6.29 ns)
+Date.now()          31.12 ns/iter    (30.94 ns … 34.7 ns)
+performance.now()   98.82 ns/iter   (98.03 ns … 106.8 ns)
+
+summary
+  baseline
+   39.49x faster than Date.now()
+   125.38x faster than performance.now()
+
+new Array(0)         7.67 ns/iter   (6.53 ns … 181.62 ns)
+new Array(1024)    295.78 ns/iter (240.04 ns … 528.28 ns)
+```
+
 
 ## JIT bias
 If you run benchmarks like this, you might notice that they get slower (only few nanoseconds) after the first few runs.
