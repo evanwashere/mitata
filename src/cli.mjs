@@ -4,7 +4,7 @@ import * as table from '../reporter/table.mjs';
 
 let g = null;
 let ran = false;
-const summarys = {};
+const summaries = {};
 const benchmarks = [];
 const groups = new Set;
 const AsyncFunction = (async () => { }).constructor;
@@ -17,7 +17,7 @@ export function group(name, cb) {
 
   g = o.name;
   groups.add(o.name);
-  summarys[g] = o.summary;
+  summaries[g] = o.summary;
 
   (cb(), g = null);
 }
@@ -175,7 +175,7 @@ export async function run(opts = {}) {
       try {
         b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
 
-        if (!json) console.log(table.benchmark(b.name, b,stats, opts));
+        if (!json) console.log(table.benchmark(b.name, b.stats, opts));
       }
 
       catch (err) {
@@ -205,10 +205,10 @@ export async function run(opts = {}) {
         }
       }
 
-      if (summarys[group] && !json) console.log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
+      if (summaries[group] && !json) console.log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
     }
 
-    json.benchmarks = benchmarks;
+    if (json) json.benchmarks = benchmarks;
     if (json) console.log(JSON.stringify(json));
 
     return json;

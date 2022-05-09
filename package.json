@@ -1,6 +1,8 @@
 {
   "name": "mitata",
   "type": "module",
-  "version": "0.0.13",
-  "main": "src/cli.mjs"
+  "license": "MIT",
+  "version": "0.0.14",
+  "main": "src/cli.mjs",
+  "description": "benchmarking lib"
 }
