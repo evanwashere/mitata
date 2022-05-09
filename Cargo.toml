@@ -2,7 +2,7 @@
 name = 'mitata'
 license = 'MIT'
 edition = '2021'
-version = '0.0.6'
+version = '0.0.7'
 description = 'benchmarking lib/cli'
 
 [dependencies]

@@ -252,7 +252,7 @@ pub mod reporter {
         let faster = b.stats.avg >= baseline.stats.avg;
         let diff = f64::from_str(&format!("{:.2}", 1.0 / baseline.stats.avg * b.stats.avg)).unwrap();
         let inv_diff = f64::from_str(&format!("{:.2}", 1.0 / b.stats.avg * baseline.stats.avg)).unwrap();
-        s.push_str(&format!("\n   {}x times {} than {}", if faster { fmt::color(&format!("{}", diff), fmt::Color::Green) } else { fmt::color(&format!("{}", inv_diff), fmt::Color::Red) }, if faster { "faster" } else { "slower" }, fmt::bold(&fmt::color(&b.name, fmt::Color::Cyan))));
+        s.push_str(&format!("\n   {}x {} than {}", if faster { fmt::color(&format!("{}", diff), fmt::Color::Green) } else { fmt::color(&format!("{}", inv_diff), fmt::Color::Red) }, if faster { "faster" } else { "slower" }, fmt::bold(&fmt::color(&b.name, fmt::Color::Cyan))));
       }
     }
 

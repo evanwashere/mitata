@@ -210,5 +210,7 @@ export async function run(opts = {}) {
 
     json.benchmarks = benchmarks;
     if (json) console.log(JSON.stringify(json));
+
+    return json;
   }
 }
