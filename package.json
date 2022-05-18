@@ -4,5 +4,6 @@
   "license": "MIT",
   "version": "0.0.14",
   "main": "src/cli.mjs",
+  "types": "src/cli.d.ts",
   "description": "benchmarking lib"
 }
