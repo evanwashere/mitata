@@ -4,5 +4,5 @@
   "license": "MIT",
   "version": "0.0.14",
   "main": "src/cli.mjs",
-  "description": "benchmarking lib"
+  "description": "cross-runtime benchmarking lib"
 }
