@@ -3,10 +3,20 @@ import { run, bench, group, baseline } from '..';
 bench('noop', () => {});
 bench('noop2', () => {});
 
+group(() => {
+  bench('a', () => {});
+  bench('b', () => {});
+});
+
 group('group', () => {
   baseline('baseline', () => {});
   bench('Date.now()', () => Date.now());
   bench('performance.now()', () => performance.now());
+});
+
+group({ summary: false }, () => {
+  bench('aa', () => {});
+  bench('bb', () => {});
 });
 
 group({ name: 'group2', summary: false }, () => {
@@ -14,7 +24,7 @@ group({ name: 'group2', summary: false }, () => {
   bench('new Array(1024)', () => new Array(1024));
 });
 
-await run({
+const report = await run({
   avg: true, // enable/disable avg column (default: true)
   json: false, // enable/disable json output (default: false)
   colors: true, // enable/disable colors (default: true)

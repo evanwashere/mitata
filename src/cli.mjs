@@ -2,8 +2,8 @@ import { sync, async } from './lib.mjs';
 import * as kleur from '../reporter/clr.mjs';
 import * as table from '../reporter/table.mjs';
 
+let _gc = 0;
 let g = null;
-let ran = false;
 const summaries = {};
 const benchmarks = [];
 const groups = new Set;
@@ -12,14 +12,13 @@ const AsyncFunction = (async () => { }).constructor;
 export function group(name, cb) {
   const o = {
     summary: name.summary ?? true,
-    name: 'string' === typeof name ? name : name.name,
+    name: ('string' === typeof name ? name : name.name) || `$mitata_group${++_gc}`,
   };
 
   g = o.name;
   groups.add(o.name);
   summaries[g] = o.summary;
-
-  (cb(), g = null);
+  ((cb || name)(), g = null);
 }
 
 export function bench(name, fn) {
@@ -88,14 +87,34 @@ async function cpu() {
     node: () => import('os').then(x => x.cpus()[0].model),
 
     bun: async () => {
-      const fs = await import('fs');
-
       try {
-        const info = new TextDecoder().decode(fs.readFileSync('/proc/cpuinfo')).split('\n');
+        if ('linux' === process.platform) {
+          const fs = await import('fs');
+          const buf = new Uint8Array(64 * 1024);
+          const fd = fs.openSync('/proc/cpuinfo', 'r');
+          const info = new TextDecoder().decode(buf.subarray(0, fs.readSync(fd, buf))).trim().split('\n');
 
-        for (const line of info) {
-          const [key, value] = line.split(':');
-          if (/model name|Hardware|Processor|^cpu model|chip type|^cpu type/.test(key)) return value.trim();
+          fs.closeSync(fd);
+
+          for (const line of info) {
+            const [key, value] = line.split(':');
+            if (/model name|Hardware|Processor|^cpu model|chip type|^cpu type/.test(key)) return value.trim();
+          }
+        }
+
+        if ('darwin' === process.platform) {
+          const { ptr, dlopen } = Bun.FFI;
+
+          const sysctlbyname = dlopen('libc.dylib', {
+            sysctlbyname: { args: ['ptr', 'ptr', 'ptr', 'ptr', 'isize'], returns: 'isize' },
+          }).symbols.sysctlbyname;
+
+          const buf = new Uint8Array(256);
+          const len = new BigInt64Array([256n]);
+          const cmd = new TextEncoder().encode('machdep.cpu.brand_string\0');
+          if (-1 === sysctlbyname(ptr(cmd), ptr(buf), ptr(len), 0, 0).toString()) throw 0;
+
+          return new TextDecoder().decode(buf.subarray(0, Number(len[0])));
         }
       } catch { }
 
@@ -142,26 +161,24 @@ async function cpu() {
   })[runtime()]();
 }
 
-globalThis.process?.on?.('beforeExit', () => run({}));
-
 export async function run(opts = {}) {
-  if (ran) return;
-  const json = opts.json ? {} : null;
-
-  ran = true;
-  opts.colors = opts.colors || true;
+  const colors = opts.colors ??= true;
   const collect = opts.collect || false;
+  const json = !!opts.json || (0 === opts.json);
   opts.size = table.size(benchmarks.map(b => b.name));
 
-  if (json) {
-    json.cpu = await cpu();
-    json.runtime = `${runtime()} ${version()}`.trim() + ` (${os()})`;
-  } else {
-    console.log(kleur.gray(opts.colors, `cpu: ${await cpu()}`));
-    console.log(kleur.gray(opts.colors, `runtime: ${runtime()} ${version()}`.trim() + ` (${os()})`), '\n');
-  }
+  const report = {
+    benchmarks,
+    cpu: await cpu(),
+    runtime: `${`${runtime()} ${version()}`.trim()} (${os()})`,
+  };
 
-  if (!json) console.log(table.header(opts)); if (!json) console.log(table.br(opts));
+  if (!json) {
+    console.log(kleur.gray(colors, `cpu: ${report.cpu}`));
+    console.log(kleur.gray(colors, `runtime: ${report.runtime}`), '\n');
+
+    console.log(table.header(opts)), console.log(table.br(opts));
+  }
 
   b: {
     let _f = false;
@@ -179,7 +196,7 @@ export async function run(opts = {}) {
       }
 
       catch (err) {
-        b.error = {  stack: err.stack, message: err.message };
+        b.error = { stack: err.stack, message: err.message };
         if (!json) console.log(table.benchmark_error(b.name, err, opts));
       }
     }
@@ -200,7 +217,7 @@ export async function run(opts = {}) {
         }
 
         catch (err) {
-          b.error = {  stack: err.stack, message: err.message };
+          b.error = { stack: err.stack, message: err.message };
           if (!json) console.log(table.benchmark_error(b.name, err, opts));
         }
       }
@@ -208,9 +225,8 @@ export async function run(opts = {}) {
       if (summaries[group] && !json) console.log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
     }
 
-    if (json) json.benchmarks = benchmarks;
-    if (json) console.log(JSON.stringify(json));
+    if (json) console.log(JSON.stringify(report, null, 'number' !== typeof opts.json ? 0 : opts.json));
 
-    return json;
+    return report;
   }
 }

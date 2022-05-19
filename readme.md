@@ -41,7 +41,7 @@ await run({
 output:
 
 <details>
-  <summary>terminal screenshot</summary>
+  <summary>terminal screenshot (click to view)</summary>
   
   ![preview.png](https://cdn.discordapp.com/attachments/640955857038999552/973337478050230312/unknown.png)
 </details>
