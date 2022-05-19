@@ -103,7 +103,7 @@ async function cpu() {
         }
 
         if ('darwin' === process.platform) {
-          const { ptr, dlopen } = Bun.FFI;
+          const { ptr, dlopen, CString } = Bun.FFI;
 
           const sysctlbyname = dlopen('libc.dylib', {
             sysctlbyname: { args: ['ptr', 'ptr', 'ptr', 'ptr', 'isize'], returns: 'isize' },
@@ -114,7 +114,7 @@ async function cpu() {
           const cmd = new TextEncoder().encode('machdep.cpu.brand_string\0');
           if (-1 === sysctlbyname(ptr(cmd), ptr(buf), ptr(len), 0, 0).toString()) throw 0;
 
-          return new TextDecoder().decode(buf.subarray(0, Number(len[0])));
+          return new CString(ptr(buf));
         }
       } catch { }
 
