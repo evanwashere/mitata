@@ -38,6 +38,14 @@ const time = (() => {
     };
   } catch { }
 
+  try {
+    $.agent.monotonicNow();
+
+    return {
+      diff: (a, b) => a - b,
+      now: () => ceil(1e6 * $.agent.monotonicNow()),
+    };
+  } catch {}
 
   return {
     diff: (a, b) => a - b,
