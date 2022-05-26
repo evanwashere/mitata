@@ -51,6 +51,19 @@ export function baseline(name, fn) {
   });
 };
 
+let _print;
+
+try {
+  _print = console.log;
+  if ('function' !== typeof _print) throw 1;
+} catch {
+  _print = print;
+}
+
+function log(...args) {
+  _print(...args);
+}
+
 function runtime() {
   if ('Bun' in globalThis) return 'bun';
   if ('Deno' in globalThis) return 'deno';
@@ -112,7 +125,7 @@ async function cpu() {
           const buf = new Uint8Array(256);
           const len = new BigInt64Array([256n]);
           const cmd = new TextEncoder().encode('machdep.cpu.brand_string\0');
-          if (-1 === sysctlbyname(ptr(cmd), ptr(buf), ptr(len), 0, 0).toString()) throw 0;
+          if (-1 === Number(sysctlbyname(ptr(cmd), ptr(buf), ptr(len), 0, 0))) throw 0;
 
           return new CString(ptr(buf));
         }
@@ -174,10 +187,11 @@ export async function run(opts = {}) {
   };
 
   if (!json) {
-    console.log(kleur.gray(colors, `cpu: ${report.cpu}`));
-    console.log(kleur.gray(colors, `runtime: ${report.runtime}`), '\n');
+    log(kleur.gray(colors, `cpu: ${report.cpu}`));
+    log(kleur.gray(colors, `runtime: ${report.runtime}`));
 
-    console.log(table.header(opts)), console.log(table.br(opts));
+    log('');
+    log(table.header(opts)), log(table.br(opts));
   }
 
   b: {
@@ -192,19 +206,19 @@ export async function run(opts = {}) {
       try {
         b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
 
-        if (!json) console.log(table.benchmark(b.name, b.stats, opts));
+        if (!json) log(table.benchmark(b.name, b.stats, opts));
       }
 
       catch (err) {
         b.error = { stack: err.stack, message: err.message };
-        if (!json) console.log(table.benchmark_error(b.name, err, opts));
+        if (!json) log(table.benchmark_error(b.name, err, opts));
       }
     }
 
-    if (_b && !json) console.log('\n' + table.summary(benchmarks.filter(b => null === b.group), opts));
+    if (_b && !json) log('\n' + table.summary(benchmarks.filter(b => null === b.group), opts));
 
     for (const group of groups) {
-      if (_f && !json) console.log('');
+      if (_f && !json) log('');
 
       _f = true;
       for (const b of benchmarks) {
@@ -213,19 +227,19 @@ export async function run(opts = {}) {
         try {
           b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
 
-          if (!json) console.log(table.benchmark(b.name, b.stats, opts));
+          if (!json) log(table.benchmark(b.name, b.stats, opts));
         }
 
         catch (err) {
           b.error = { stack: err.stack, message: err.message };
-          if (!json) console.log(table.benchmark_error(b.name, err, opts));
+          if (!json) log(table.benchmark_error(b.name, err, opts));
         }
       }
 
-      if (summaries[group] && !json) console.log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
+      if (summaries[group] && !json) log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
     }
 
-    if (json) console.log(JSON.stringify(report, null, 'number' !== typeof opts.json ? 0 : opts.json));
+    if (json) log(JSON.stringify(report, null, 'number' !== typeof opts.json ? 0 : opts.json));
 
     return report;
   }
