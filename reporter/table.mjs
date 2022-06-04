@@ -31,10 +31,11 @@ export function benchmark(n, b, { size, avg = true, colors = true, min_max = tru
 }
 
 export function summary(benchmarks, { colors = true } = {}) {
+  benchmarks = benchmarks.filter(b => !b.error);
   benchmarks.sort((a, b) => a.stats.avg - b.stats.avg);
   const baseline = benchmarks.find(b => b.baseline) || benchmarks[0];
 
-  return kleur.bold(colors, 'summary')
+  return kleur.bold(colors, 'summary') + ((null == baseline.group || baseline.group.startsWith?.('$mitata_group')) ? '' : kleur.gray(colors, ` for ${baseline.group}`))
     + `\n  ${kleur.bold(colors, kleur.cyan(colors, baseline.name))}`
 
     + benchmarks.filter(b => b !== baseline).map(b => {

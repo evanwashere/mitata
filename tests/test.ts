@@ -2,10 +2,12 @@ import { run, bench, group, baseline } from '..';
 
 bench('noop', () => {});
 bench('noop2', () => {});
+baseline('aaa', () => {});
 
 group(() => {
   bench('a', () => {});
   bench('b', () => {});
+  bench('e', () => { throw 1; })
 });
 
 group('group', () => {
