@@ -220,7 +220,7 @@ export async function run(opts = {}) {
     for (const group of groups) {
       if (!json) {
         if (_f) log('');
-        if (!group.startsWith('$mitata_group')) log(`• ${group}`); log(kleur.red(colors, table.br(opts)));
+        if (!group.startsWith('$mitata_group')) log(`• ${group}`); log(kleur.gray(colors, table.br(opts)));
       }
 
       _f = true;
