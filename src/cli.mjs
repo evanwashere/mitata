@@ -218,7 +218,10 @@ export async function run(opts = {}) {
     if (_b && !json) log('\n' + table.summary(benchmarks.filter(b => null === b.group), opts));
 
     for (const group of groups) {
-      if (_f && !json) log('');
+      if (!json) {
+        if (_f) log('');
+        if (!group.startsWith('$mitata_group')) log(`• ${group}`); log(kleur.red(colors, table.br(opts)));
+      }
 
       _f = true;
       for (const b of benchmarks) {

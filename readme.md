@@ -15,6 +15,9 @@ import { run, bench, group, baseline } from 'mitata';
 // deno
 // import { ... } from 'https://esm.sh/mitata';
 
+// d8/jsc
+// import { ... } from '<path to mitata>/src/cli.mjs';
+
 bench('noop', () => {});
 bench('noop2', () => {});
 
@@ -42,30 +45,34 @@ output:
 
 <details>
   <summary>terminal screenshot (click to view)</summary>
-  
-  ![preview.png](https://cdn.discordapp.com/attachments/640955857038999552/973337478050230312/unknown.png)
+
+  ![preview.png](https://cdn.discordapp.com/attachments/982583748811980830/982583770618142770/unknown.png)
 </details>
 
 ```js
-cpu: unknown
-runtime: bun 0.0.79 (arm64-darwin) 
+cpu: Apple M1
+runtime: bun 0.0.83 (arm64-darwin)
 
 benchmark              time (avg)             (min … max)
 ---------------------------------------------------------
-noop               321.41 ps/iter    (304.1 ps … 8.55 ns)
-noop2              389.13 ps/iter   (304.1 ps … 11.13 ns)
+noop               323.34 ps/iter    (304.1 ps … 8.64 ns)
+noop2              387.15 ps/iter   (304.1 ps … 16.79 ns)
 
-baseline           788.15 ps/iter    (304.1 ps … 6.29 ns)
-Date.now()          31.12 ns/iter    (30.94 ns … 34.7 ns)
-performance.now()   98.82 ns/iter   (98.03 ns … 106.8 ns)
+• group
+---------------------------------------------------------
+baseline           782.71 ps/iter    (304.1 ps … 6.34 ns)
+Date.now()          31.04 ns/iter    (30.9 ns … 34.59 ns)
+performance.now()   92.71 ns/iter  (91.72 ns … 101.45 ns)
 
-summary
+summary for group
   baseline
-   39.49x faster than Date.now()
-   125.38x faster than performance.now()
+   39.66x faster than Date.now()
+   118.45x faster than performance.now()
 
-new Array(0)         7.67 ns/iter   (6.53 ns … 181.62 ns)
-new Array(1024)    295.78 ns/iter (240.04 ns … 528.28 ns)
+• group2
+---------------------------------------------------------
+new Array(0)         7.47 ns/iter   (6.46 ns … 269.07 ns)
+new Array(1024)    286.39 ns/iter  (241.37 ns … 560.7 ns)
 ```
 
 
