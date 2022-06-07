@@ -5,5 +5,13 @@
   "version": "0.1.3",
   "main": "src/cli.mjs",
   "types": "src/cli.d.ts",
-  "description": "cross-runtime benchmarking lib"
+  "description": "cross-runtime benchmarking lib",
+	"homepage": "https://github.com/evanwashere/mitata#readme",
+  "bugs": {
+		"url": "https://github.com/evanwashere/mitata/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/evanwashere/mitata.git"
+	},
 }
