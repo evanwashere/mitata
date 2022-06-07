@@ -6,12 +6,12 @@
   "main": "src/cli.mjs",
   "types": "src/cli.d.ts",
   "description": "cross-runtime benchmarking lib",
-	"homepage": "https://github.com/evanwashere/mitata#readme",
+    "homepage": "https://github.com/evanwashere/mitata#readme",
   "bugs": {
-		"url": "https://github.com/evanwashere/mitata/issues"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/evanwashere/mitata.git"
-	},
+    "url": "https://github.com/evanwashere/mitata/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/evanwashere/mitata.git"
+  },
 }
