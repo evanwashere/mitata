@@ -20,7 +20,7 @@ function stats(n, t, avg, min, max, jit, all) {
   };
 }
 
-export function sync(t, fn, collect = false) {
+export async function sync(t, fn, collect = false) {
   let n = 0;
   let avg = 0;
   let wavg = 0;
@@ -35,8 +35,9 @@ export function sync(t, fn, collect = false) {
     while (iterations--) {
       const t1 = now();
 
-      fn();
+      const x = fn();
       jit[offset++] = time.diff(now(), t1);
+      if (x instanceof Promise) return (await x, async(t, fn, collect));
     }
 
     let c = 0;
