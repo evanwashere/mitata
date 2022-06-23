@@ -204,7 +204,7 @@ export async function run(opts = {}) {
       _f = true;
 
       try {
-        b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
+        b.stats = !b.async ? await sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
 
         if (!json) log(table.benchmark(b.name, b.stats, opts));
       }
@@ -229,7 +229,7 @@ export async function run(opts = {}) {
         if (group !== b.group) continue;
 
         try {
-          b.stats = !b.async ? sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
+          b.stats = !b.async ? await sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
 
           if (!json) log(table.benchmark(b.name, b.stats, opts));
         }

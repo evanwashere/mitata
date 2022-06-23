@@ -1,8 +1,8 @@
 import { run, bench, group, baseline } from '..';
 
 bench('noop', () => {});
-bench('noop2', () => {});
 baseline('aaa', () => {});
+bench('noop2', () => Promise.resolve(1));
 
 group(() => {
   bench('a', () => {});
