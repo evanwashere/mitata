@@ -10,7 +10,7 @@
 
 ## Examples
 ```js
-import { run, bench, group, baseline } from 'mitata';
+import { run, bench, group, baseline, prepare } from 'mitata';
 
 // deno
 // import { ... } from 'https://esm.sh/mitata';
@@ -22,6 +22,7 @@ bench('noop', () => {});
 bench('noop2', () => {});
 
 group('group', () => {
+  prepare('cleanup', async () => { /* unbenched setup / teardown code' */ })
   baseline('baseline', () => {});
   bench('Date.now()', () => Date.now());
   bench('performance.now()', () => performance.now());

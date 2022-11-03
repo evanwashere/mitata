@@ -32,6 +32,7 @@ export function bench(name, fn) {
     time: 500,
     warmup: true,
     baseline: false,
+    hook: false,
     async: AsyncFunction === fn.constructor,
   });
 };
@@ -47,10 +48,26 @@ export function baseline(name, fn) {
     time: 500,
     warmup: true,
     baseline: true,
+    hook: false,
     async: AsyncFunction === fn.constructor,
   });
 };
 
+export function prepare(name, fn) {
+  if ([Function, AsyncFunction].includes(name.constructor)) (fn = name, name = fn.name);
+  if (![Function, AsyncFunction].includes(fn.constructor)) throw new TypeError(`expected function, got ${fn.constructor.name}`);
+
+  benchmarks.push({
+    fn,
+    name,
+    group: g,
+    time: 500,
+    warmup: false,
+    baseline: false,
+    hook: true,
+    async: AsyncFunction === fn.constructor,
+  });
+}
 let _print;
 
 try {
@@ -204,6 +221,11 @@ export async function run(opts = {}) {
       _f = true;
 
       try {
+        if (b.hook) {
+          await b.fn();
+          continue;
+        }
+
         b.stats = !b.async ? await sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
 
         if (!json) log(table.benchmark(b.name, b.stats, opts));
@@ -215,7 +237,7 @@ export async function run(opts = {}) {
       }
     }
 
-    if (_b && !json) log('\n' + table.summary(benchmarks.filter(b => null === b.group), opts));
+    if (_b && !json) log('\n' + table.summary(benchmarks.filter(b => null === b.group && !b.hook), opts));
 
     for (const group of groups) {
       if (!json) {
@@ -229,6 +251,11 @@ export async function run(opts = {}) {
         if (group !== b.group) continue;
 
         try {
+          if (b.hook) {
+            await b.fn();
+            continue;
+          }
+
           b.stats = !b.async ? await sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
 
           if (!json) log(table.benchmark(b.name, b.stats, opts));
@@ -240,7 +267,7 @@ export async function run(opts = {}) {
         }
       }
 
-      if (summaries[group] && !json) log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
+      if (summaries[group] && !json) log('\n' + table.summary(benchmarks.filter(b => group === b.group && !b.hook), opts));
     }
 
     if (json) log(JSON.stringify(report, null, 'number' !== typeof opts.json ? 0 : opts.json));
