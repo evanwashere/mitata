@@ -3,11 +3,12 @@ mod lib;
 fn main() {
   let mitata = clap::Command::new("mitata");
 
-  let matches = mitata
+  let mut matches = mitata
     .arg_required_else_help(true)
-    .arg(clap::Arg::new("benchmark").required(true).forbid_empty_values(true).multiple_occurrences(true)).get_matches();
+    .arg(clap::Arg::new("benchmark").required(true).value_parser(clap::builder::NonEmptyStringValueParser::new()).action(clap::ArgAction::Append))
+    .get_matches();
 
-  let benchmarks: Vec<String> = matches.values_of("benchmark").unwrap().map(|x| x.to_string()).collect();
+  let benchmarks: Vec<String> = matches.remove_many::<String>("benchmark").unwrap().collect();
   let mut options = lib::reporter::Options::new(&benchmarks.iter().map(|x| x.as_str()).collect::<Vec<&str>>());
 
   options.percentiles = false;

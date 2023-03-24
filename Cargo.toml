@@ -6,4 +6,4 @@ version = '0.0.7'
 description = 'benchmarking lib/cli'
 
 [dependencies]
-clap = { version = '3', default-features = false, features = ['std', 'env', 'cargo', 'color'] }
+clap = { version = '4', default-features = false, features = ['std', 'env', 'cargo', 'color'] }
