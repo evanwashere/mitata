@@ -1,4 +1,4 @@
-import { sync, async } from './lib.mjs';
+import { measure } from './lib.mjs';
 import * as kleur from '../reporter/clr.mjs';
 import * as table from '../reporter/table.mjs';
 
@@ -58,10 +58,6 @@ try {
   if ('function' !== typeof _print) throw 1;
 } catch {
   _print = print;
-}
-
-function log(...args) {
-  _print(...args);
 }
 
 function runtime() {
@@ -176,7 +172,8 @@ async function cpu() {
 
 export async function run(opts = {}) {
   const colors = opts.colors ??= true;
-  const collect = opts.collect || false;
+  const silent = opts.silent || false;
+  const log = silent ? () => { } : _print;
   const json = !!opts.json || (0 === opts.json);
   opts.size = table.size(benchmarks.map(b => b.name));
 
@@ -204,8 +201,7 @@ export async function run(opts = {}) {
       _f = true;
 
       try {
-        b.stats = !b.async ? await sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
-
+        b.stats = (await measure(b.fn, {})).stats;
         if (!json) log(table.benchmark(b.name, b.stats, opts));
       }
 
@@ -229,8 +225,7 @@ export async function run(opts = {}) {
         if (group !== b.group) continue;
 
         try {
-          b.stats = !b.async ? await sync(b.time, b.fn, collect) : await async(b.time, b.fn, collect);
-
+          b.stats = (await measure(b.fn, {})).stats;
           if (!json) log(table.benchmark(b.name, b.stats, opts));
         }
 

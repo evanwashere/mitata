@@ -29,10 +29,10 @@ group({ name: 'group2', summary: false }, () => {
 bench('error', () => { throw new Error('error'); });
 
 const report = await run({
+  silent: false,
   avg: true, // enable/disable avg column (default: true)
   json: false, // enable/disable json output (default: false)
   colors: true, // enable/disable colors (default: true)
   min_max: true, // enable/disable min/max column (default: true)
-  collect: false, // enable/disable collecting returned values into an array during the benchmark (default: false)
   percentiles: false, // enable/disable percentiles column (default: true)
 });

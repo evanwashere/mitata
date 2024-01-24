@@ -1,227 +1,101 @@
 import * as time from './time.mjs';
 
 const now = time.now;
+const AsyncFunction = (async () => { }).constructor;
+const GeneratorFunction = (function* () { }).constructor;
+const AsyncGeneratorFunction = (async function* () { }).constructor;
 
-function sort(a, b) {
-  if (a > b) return 1;
-  if (a < b) return -1;
+// doesn't actually support generators yet (1.0.0 feature)
+export function measure(fn, ctx, _ = {}) {
+  if (!(
+    fn instanceof Function
+    || fn instanceof AsyncFunction
+    || fn instanceof GeneratorFunction
+    || fn instanceof AsyncGeneratorFunction
+  )) throw new Error('fn must be a function or generator');
 
-  return 0;
-};
+  if (!_.spc) {
+    const t0 = now();
 
-function stats(n, t, avg, min, max, jit, all) {
-  return {
-    n, min, max, jit,
-    p75: all[Math.ceil(n * (75 / 100)) - 1],
-    p99: all[Math.ceil(n * (99 / 100)) - 1],
-    avg: !t ? (avg / n) :  Math.ceil(avg / n),
-    p995: all[Math.ceil(n * (99.5 / 100)) - 1],
-    p999: all[Math.ceil(n * (99.9 / 100)) - 1],
-  };
-}
-
-export async function sync(t, fn, collect = false) {
-  let n = 0;
-  let avg = 0;
-  let wavg = 0;
-  let min = Infinity;
-  let max = -Infinity;
-  const all = new Array;
-  const jit = new Array(10);
-
-  warmup: {
-    let offset = 0;
-    let iterations = 10;
-    while (iterations--) {
-      const t1 = now();
-
-      const x = fn();
-      jit[offset++] = time.diff(now(), t1);
-      if (x instanceof Promise) return (await x, async(t, fn, collect));
-    }
-
-    let c = 0;
-    iterations = 4;
-    let budget = 10 * 1e6;
-
-    while (0 < budget || 0 < iterations--) {
-      const t1 = now();
-
-      fn();
-      const t2 = time.diff(now(), t1);
-      if (0 > t2) { iterations++; continue; };
-
-      c++;
-      wavg += t2;
-      budget -= t2;
-    }
-
-    wavg /= c;
+    _.spc = true;
+    const r = fn();
+    _.t = now() - t0;
+    if (!(r instanceof Promise)) {}
+    else return r.then(() => (_.a = true, _.t = now() - t0, measure(fn, ctx, _)));
   }
 
-  measure: {
-    if (wavg > 10_000) {
-      let iterations = 10;
-      let budget = t * 1e6;
+  _.t ||= 0;
+  const warmup = false === ctx.warmup ? false : { samples: ctx.warmup?.samples || 128 };
+  const async = _.a || [AsyncFunction, AsyncGeneratorFunction].includes(fn.constructor);
+  const generator = [GeneratorFunction, AsyncGeneratorFunction].includes(fn.constructor);
 
-      while (0 < budget || 0 < iterations--) {
-        const t1 = now();
+  const b = new (!async ? Function : AsyncFunction)('$fn', '$now', `
+    let $w = ${_.t};
 
-        fn();
-        const t2 = time.diff(now(), t1);
-        if (0 > t2) { iterations++; continue; };
+    ${!warmup ? '' : (() => {
+      if (_.t > 250_000_000) return '';
 
-        n++;
-        avg += t2;
-        budget -= t2;
-        all.push(t2);
-        if (t2 < min) min = t2;
-        if (t2 > max) max = t2;
+      return `
+        warmup: {
+          const samples = new Array(${warmup.samples - 1});
+
+          for (let o = 0; o < ${warmup.samples - 1}; o++) {
+            const t0 = $now();
+            const t1 = (${!async ? '' : 'await'} $fn(), $now());
+
+            samples[o] = t1 - t0;
+          }
+
+          $w = (samples.sort((a, b) => a - b), samples[1]);
+        }
+      `;
+    })()}
+
+    let s = 0;
+    let t = 600_000_000;
+    let samples = new Array;
+
+    if ($w > 10_000) {
+      while (s < t || 10 > samples.length) {
+        const t0 = $now();
+        const t1 = (${!async ? '' : 'await'} $fn(), $now());
+
+        s += samples[samples.push(t1 - t0) - 1];
       }
     }
 
     else {
-      let iterations = 10;
-      let budget = t * 1e6;
+      while (s < t || 128 > samples.length) {
+        const t0 = $now();
 
-      if (!collect) while (0 < budget || 0 < iterations--) {
-        const t1 = now();
-        for (let c = 0; c < 1e4; c++) fn();
-        const t2 = time.diff(now(), t1) / 1e4;
-        if (0 > t2) { iterations++; continue; };
-
-        n++;
-        avg += t2;
-        all.push(t2);
-        budget -= t2 * 1e4;
-        if (t2 < min) min = t2;
-        if (t2 > max) max = t2;
-      }
-
-      else {
-        const garbage = new Array(1e4);
-
-        while (0 < budget || 0 < iterations--) {
-          const t1 = now();
-          for (let c = 0; c < 1e4; c++) garbage[c] = fn();
-
-          const t2 = time.diff(now(), t1) / 1e4;
-          if (0 > t2) { iterations++; continue; };
-  
-          n++;
-          avg += t2;
-          all.push(t2);
-          budget -= t2 * 1e4;
-          if (t2 < min) min = t2;
-          if (t2 > max) max = t2;
+        for (let o = 0; o < 256; o++) {
+          ${`${!async ? '' : 'await'} $fn();\n`.repeat(8)}
         }
-      }
-    }
-  }
 
-  all.sort(sort);
-  return stats(n, wavg > 10_000, avg, min, max, jit, all);
-}
+        const t1 = $now();
 
-export async function async(t, fn, collect = false) {
-  let n = 0;
-  let avg = 0;
-  let wavg = 0;
-  let min = Infinity;
-  let max = -Infinity;
-  const all = new Array;
-  const jit = new Array(10);
-
-  warmup: {
-    let offset = 0;
-    let iterations = 10;
-    while (iterations--) {
-      const t1 = now();
-
-      await fn();
-      jit[offset++] = time.diff(now(), t1);
-    }
-
-    let c = 0;
-    iterations = 4;
-    let budget = 10 * 1e6;
-
-    while (0 < budget || 0 < iterations--) {
-      const t1 = now();
-
-      await fn();
-      const t2 = time.diff(now(), t1);
-      if (0 > t2) { iterations++; continue; };
-
-      c++;
-      wavg += t2;
-      budget -= t2;
-    }
-
-    wavg /= c;
-  }
-
-  measure: {
-    if (wavg > 10_000) {
-      let iterations = 10;
-      let budget = t * 1e6;
-
-      while (0 < budget || 0 < iterations--) {
-        const t1 = now();
-
-        await fn();
-        const t2 = time.diff(now(), t1);
-        if (0 > t2) { iterations++; continue; };
-
-        n++;
-        avg += t2;
-        budget -= t2;
-        all.push(t2);
-        if (t2 < min) min = t2;
-        if (t2 > max) max = t2;
+        s += t1 - t0;
+        samples.push((t1 - t0) / 2048);
       }
     }
 
-    else {
-      let iterations = 10;
-      let budget = t * 1e6;
+    samples.sort((a, b) => a - b);
+    samples = samples.slice(1, -1);
 
-      if (!collect) while (0 < budget || 0 < iterations--) {
-        const t1 = now();
-        for (let c = 0; c < 1e4; c++) await fn();
+    return {
+      // samples,
+      min: samples[0],
+      max: samples[samples.length - 1],
+      p50: samples[(.50 * samples.length) | 0],
+      p75: samples[(.75 * samples.length) | 0],
+      p99: samples[(.99 * samples.length) | 0],
+      p999: samples[(.999 * samples.length) | 0],
+      avg: samples.reduce((a, b) => a + b, 0) / samples.length,
+    };
+  `);
 
-        const t2 = time.diff(now(), t1) / 1e4;
-        if (0 > t2) { iterations++; continue; };
-
-        n++;
-        avg += t2;
-        all.push(t2);
-        budget -= t2 * 1e4;
-        if (t2 < min) min = t2;
-        if (t2 > max) max = t2;
-      }
-
-      else {
-        const garbage = new Array(1e4);
-
-        while (0 < budget || 0 < iterations--) {
-          const t1 = now();
-          for (let c = 0; c < 1e4; c++) garbage[c] = await fn();
-
-          const t2 = time.diff(now(), t1) / 1e4;
-          if (0 > t2) { iterations++; continue; };
-  
-          n++;
-          avg += t2;
-          all.push(t2);
-          budget -= t2 * 1e4;
-          if (t2 < min) min = t2;
-          if (t2 > max) max = t2;
-        }
-      }
-    }
-  }
-
-  all.sort(sort);
-  return stats(n, wavg > 10_000, avg, min, max, jit, all);
+  const stats = b(fn, now);
+  return !(stats instanceof Promise)
+    ? ({ stats, async, warmup, generator })
+    : stats.then(stats => ({ stats, async, warmup, generator }));
 }

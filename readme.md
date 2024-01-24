@@ -13,7 +13,7 @@
 import { run, bench, group, baseline } from 'mitata';
 
 // deno
-// import { ... } from 'https://esm.sh/mitata';
+// import { ... } from 'npm:mitata';
 
 // d8/jsc
 // import { ... } from '<path to mitata>/src/cli.mjs';
@@ -33,11 +33,11 @@ group({ name: 'group2', summary: false }, () => {
 });
 
 await run({
+  silent: false, // enable/disable stdout output
   avg: true, // enable/disable avg column (default: true)
   json: false, // enable/disable json output (default: false)
   colors: true, // enable/disable colors (default: true)
   min_max: true, // enable/disable min/max column (default: true)
-  collect: false, // enable/disable collecting returned values into an array during the benchmark (default: false)
   percentiles: false, // enable/disable percentiles column (default: true)
 });
 ```
@@ -75,27 +75,6 @@ new Array(0)         7.47 ns/iter   (6.46 ns … 269.07 ns)
 new Array(1024)    286.39 ns/iter  (241.37 ns … 560.7 ns)
 ```
 
-
-## JIT bias
-If you run benchmarks like this, you might notice that they get slower (only few nanoseconds) after the first few runs.
-
-```js
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-bench('noop', () => {});
-```
-
-I call this behavior "JIT bias". In simple words, v8 and JSC JIT expect us to pass the same function, so they optimize for it, but we break that promise and get deoptimized.
 
 ## License
 

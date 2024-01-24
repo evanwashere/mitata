@@ -7,11 +7,16 @@ export function group(options: { name?: string, summary?: boolean }, fn: () => v
 
 export function run(options?: {
   avg?: boolean,
+  silent?: boolean,
   colors?: boolean,
   min_max?: boolean,
-  collect?: boolean,
   percentiles?: boolean,
   json?: number | boolean,
+
+  /**
+  * @deprecated does not do anything since 0.1.7
+  */
+  collect?: boolean,
 }): Promise<Report>;
 
 export interface Report {
@@ -33,15 +38,13 @@ export interface Report {
     };
 
     stats?: {
-      n: number;
       avg: number;
       min: number;
       max: number;
+      p50: number;
       p75: number;
       p99: number;
-      p995: number;
       p999: number;
-      jit: number[];
     };
   }[];
 }

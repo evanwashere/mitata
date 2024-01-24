@@ -15,8 +15,8 @@ const time = (() => {
     if ('Deno' in globalThis) throw 0;
 
     return {
-      now: process.hrtime.bigint,
-      diff: (a, b) => Number(a - b),
+      diff: (a, b) => a - b,
+      now: () => Number(process.hrtime.bigint()),
     };
   } catch { }
 

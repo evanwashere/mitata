@@ -20,14 +20,14 @@ export function header({ size, avg = true, min_max = true, percentiles = true })
   return 'benchmark'.padEnd(size, ' ')
     + (!avg ? '' : 'time (avg)'.padStart(14, ' '))
     + (!min_max ? '' : '(min … max)'.padStart(24, ' '))
-    + (!percentiles ? '' : ` ${'p75'.padStart(9, ' ')} ${'p99'.padStart(9, ' ')} ${'p995'.padStart(9, ' ')}`);
+    + (!percentiles ? '' : ` ${'p75'.padStart(9, ' ')} ${'p99'.padStart(9, ' ')} ${'p999'.padStart(9, ' ')}`);
 }
 
 export function benchmark(n, b, { size, avg = true, colors = true, min_max = true, percentiles = true }) {
   return n.padEnd(size, ' ')
     + (!avg ? '' : `${kleur.yellow(colors, duration(b.avg))}/iter`.padStart(14 + 10 * colors, ' '))
     + (!min_max ? '' : `(${kleur.cyan(colors, duration(b.min))} … ${kleur.magenta(colors, duration(b.max))})`.padStart(24 + 2 * 10 * colors, ' '))
-    + (!percentiles ? '' : ` ${kleur.gray(colors, duration(b.p75)).padStart(9 + 10 * colors, ' ')} ${kleur.gray(colors, duration(b.p99)).padStart(9 + 10 * colors, ' ')} ${kleur.gray(colors, duration(b.p995)).padStart(9 + 10 * colors, ' ')}`);
+    + (!percentiles ? '' : ` ${kleur.gray(colors, duration(b.p75)).padStart(9 + 10 * colors, ' ')} ${kleur.gray(colors, duration(b.p99)).padStart(9 + 10 * colors, ' ')} ${kleur.gray(colors, duration(b.p999)).padStart(9 + 10 * colors, ' ')}`);
 }
 
 export function summary(benchmarks, { colors = true } = {}) {
