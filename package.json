@@ -2,7 +2,7 @@
   "name": "mitata",
   "type": "module",
   "license": "MIT",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "main": "src/cli.mjs",
   "types": "src/cli.d.ts",
   "description": "cross-runtime benchmarking lib",
