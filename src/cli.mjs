@@ -97,6 +97,11 @@ async function cpu() {
 
     bun: async () => {
       try {
+        const os = await import('node:os');
+        if (os?.cpus?.()?.[0]?.model) return os.cpus()[0].model;
+      } catch { }
+
+      try {
         if ('linux' === process.platform) {
           const fs = await import('fs');
           const buf = new Uint8Array(64 * 1024);
@@ -132,15 +137,31 @@ async function cpu() {
 
     deno: async () => {
       try {
-        if ('darwin' === Deno.build.os) {
-          const p = Deno.run({
-            stdin: 'null',
-            stderr: 'null',
-            stdout: 'piped',
-            cmd: ['sysctl', '-n', 'machdep.cpu.brand_string'],
-          });
+        try {
+          const os = await import('node:os');
+          if (os?.cpus?.()?.[0]?.model) return os.cpus()[0].model;
+        } catch { }
 
-          return Deno.core.decode(await p.output()).trim();
+        if ('darwin' === Deno.build.os) {
+          try {
+            const p = Deno.run({
+              stdin: 'null',
+              stderr: 'null',
+              stdout: 'piped',
+              cmd: ['sysctl', '-n', 'machdep.cpu.brand_string'],
+            });
+
+            return Deno.core.decode(await p.output()).trim();
+          } catch { }
+
+          try {
+            const p = new Deno.Command('sysctl', {
+              args: ['-n', 'machdep.cpu.brand_string'],
+            });
+
+            const { code, stdout } = await p.output();
+            if (0 === code) return new TextDecoder().decode(stdout).trim();
+          } catch { }
         }
 
         if ('linux' === Deno.build.os) {
@@ -153,14 +174,25 @@ async function cpu() {
         }
 
         if ('windows' === Deno.build.os) {
-          const p = Deno.run({
-            stdin: 'null',
-            stderr: 'null',
-            stdout: 'piped',
-            cmd: ['wmic', 'cpu', 'get', 'name'],
-          });
+          try {
+            const p = Deno.run({
+              stdin: 'null',
+              stderr: 'null',
+              stdout: 'piped',
+              cmd: ['wmic', 'cpu', 'get', 'name'],
+            });
 
-          return Deno.core.decode(await p.output()).split('\n').at(-1).trim();
+            return Deno.core.decode(await p.output()).split('\n').at(-1).trim();
+          } catch { }
+
+          try {
+            const p = new Deno.Command('wmic', {
+              args: ['cpu', 'get', 'name'],
+            });
+
+            const { code, stdout } = await p.output();
+            if (0 === code) return new TextDecoder().decode(stdout).split('\n').at(-1).trim();
+          } catch { }
         }
       } catch { }
 
