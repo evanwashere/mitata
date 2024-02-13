@@ -270,6 +270,7 @@ export async function run(opts = {}) {
       if (summaries[group] && !json) log('\n' + table.summary(benchmarks.filter(b => group === b.group), opts));
     }
 
+    if (!json && opts.units) log(table.units(opts));
     if (json) log(JSON.stringify(report, null, 'number' !== typeof opts.json ? 0 : opts.json));
 
     return report;

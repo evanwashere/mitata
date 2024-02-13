@@ -38,6 +38,7 @@ group({ name: 'group2', summary: false }, () => {
 });
 
 await run({
+  units: false, // print small units cheatsheet
   silent: false, // enable/disable stdout output
   avg: true, // enable/disable avg column (default: true)
   json: false, // enable/disable json output (default: false)
