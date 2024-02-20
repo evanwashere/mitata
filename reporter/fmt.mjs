@@ -2,8 +2,8 @@ const locale = 'en-us';
 
 export function duration(time) {
   if (time < 1e0) return `${Number((time * 1e3).toFixed(0)).toString()} ps`
-  if (time < 1e2) return `${Number((time * 1e3).toFixed(0)).toLocaleString(locale).replace(',', '\'')} ps`
 
+  if (time < 1e2) return `${Number(time.toFixed(2)).toString()} ns`;
   if (time < 1e3) return `${Number(time.toFixed(0)).toString()} ns`;
   if (time < 1e5) return `${Number(time.toFixed(0)).toLocaleString(locale).replace(',', '\'')} ns`;
 
