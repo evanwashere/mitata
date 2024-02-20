@@ -89,6 +89,16 @@ function os() {
   })[runtime()]();
 }
 
+function no_color() {
+  return ({
+    browser: () => true,
+    unknown: () => false,
+    deno: () => Deno.noColor,
+    bun: () => !!process.env.NO_COLOR,
+    node: () => !!process.env.NO_COLOR,
+  })[runtime()]();
+}
+
 async function cpu() {
   return await ({
     unknown: () => 'unknown',
@@ -203,9 +213,9 @@ async function cpu() {
 }
 
 export async function run(opts = {}) {
-  const colors = opts.colors ??= true;
   const silent = opts.silent || false;
   const log = silent ? () => { } : _print;
+  const colors = opts.colors ??= !no_color();
   const json = !!opts.json || (0 === opts.json);
   opts.size = table.size(benchmarks.map(b => b.name));
 
