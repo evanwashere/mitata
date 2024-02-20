@@ -12,6 +12,7 @@ export function run(options?: {
   min_max?: boolean,
   percentiles?: boolean,
   json?: number | boolean,
+  units?: boolean,
 
   /**
   * @deprecated does not do anything since 0.1.7
