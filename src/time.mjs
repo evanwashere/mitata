@@ -1,4 +1,4 @@
-import { isDeno } from './utils.mjs';
+import { isDeno } from './runtime.mjs';
 
 const time = (() => {
   const ceil = Math.ceil;

@@ -1,7 +1,7 @@
 import { measure } from './lib.mjs';
 import * as kleur from '../reporter/clr.mjs';
 import * as table from '../reporter/table.mjs';
-import { runtime } from './utils.mjs';
+import { runtime } from './runtime.mjs';
 
 let _gc = 0;
 let g = null;
