@@ -8,10 +8,35 @@
 
 <br />
 
-### Install
-`bun add mitata`
+## Install
 
-`npm install mitata`
+### Bun
+
+```shell
+bun add mitata
+```
+
+### Node
+
+```shell
+npm install mitata
+```
+
+### Deno
+
+```shell
+deno add npm:mitata
+```
+
+### Browser
+
+```js
+<script type="module">
+import {
+ ...
+} from 'https://cdn.jsdelivr.net/npm/mitata@0.1.11/src/cli.mjs'
+</script>
+```
 
 ## Example
 ```js
