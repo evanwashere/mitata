@@ -1,6 +1,7 @@
 import { measure } from './lib.mjs';
 import * as kleur from '../reporter/clr.mjs';
 import * as table from '../reporter/table.mjs';
+import { isBrowser, isBun, isDeno, isNode, runtimes } from './utils.mjs';
 
 let _gc = 0;
 let g = null;
@@ -61,10 +62,10 @@ try {
 }
 
 function runtime() {
-  if ('Bun' in globalThis) return 'bun';
-  if ('Deno' in globalThis) return 'deno';
-  if ('process' in globalThis) return 'node';
-  if ('navigator' in globalThis) return 'browser';
+  if (isBun) return runtimes.bun;
+  if (isDeno) return runtimes.deno;
+  if (isNode) return runtimes.node;
+  if (isBrowser) return runtimes.browser;
 
   return 'unknown';
 }
