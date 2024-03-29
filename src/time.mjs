@@ -1,3 +1,5 @@
+import { isDeno } from './runtime.mjs';
+
 const time = (() => {
   const ceil = Math.ceil;
 
@@ -5,14 +7,14 @@ const time = (() => {
     Bun.nanoseconds();
 
     return {
-      now: Bun.nanoseconds,
       diff: (a, b) => a - b,
+      now: Bun.nanoseconds,
     };
   } catch { }
 
   try {
+    if (isDeno) throw 0;
     process.hrtime.bigint();
-    if ('Deno' in globalThis) throw 0;
 
     return {
       diff: (a, b) => a - b,

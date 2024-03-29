@@ -1,6 +1,7 @@
 import { measure } from './lib.mjs';
 import * as kleur from '../reporter/clr.mjs';
 import * as table from '../reporter/table.mjs';
+import { runtime } from './runtime.mjs';
 
 let _gc = 0;
 let g = null;
@@ -58,15 +59,6 @@ try {
   if ('function' !== typeof _print) throw 1;
 } catch {
   _print = print;
-}
-
-function runtime() {
-  if ('Bun' in globalThis) return 'bun';
-  if ('Deno' in globalThis) return 'deno';
-  if ('process' in globalThis) return 'node';
-  if ('navigator' in globalThis) return 'browser';
-
-  return 'unknown';
 }
 
 function version() {
