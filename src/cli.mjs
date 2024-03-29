@@ -1,7 +1,7 @@
 import { measure } from './lib.mjs';
 import * as kleur from '../reporter/clr.mjs';
 import * as table from '../reporter/table.mjs';
-import { isBrowser, isBun, isDeno, isNode, runtimes } from './utils.mjs';
+import { runtime } from './utils.mjs';
 
 let _gc = 0;
 let g = null;
@@ -59,15 +59,6 @@ try {
   if ('function' !== typeof _print) throw 1;
 } catch {
   _print = print;
-}
-
-function runtime() {
-  if (isBun) return runtimes.bun;
-  if (isDeno) return runtimes.deno;
-  if (isNode) return runtimes.node;
-  if (isBrowser) return runtimes.browser;
-
-  return 'unknown';
 }
 
 function version() {
