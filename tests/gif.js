@@ -8,7 +8,7 @@ group(() => {
 group('getting time', () => {
   bench('Date.now()', () => Date.now());
   bench('Bun.nanoseconds()', () => Bun.nanoseconds());
-  bench('performance.now()', () => performance.now() | 0);
+  bench('performance.now()', () => performance.now() || 0);
 });
 
 group({ name: 'creating array', summary: false }, () => {

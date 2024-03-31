@@ -60,6 +60,15 @@ try {
   _print = print;
 }
 
+export function clear() {
+  _gc = 0;
+  for (const key in summaries) {
+    delete summaries[key];
+  }
+  benchmarks.length = 0;
+  groups.clear();
+}
+
 function runtime() {
   if ('Bun' in globalThis) return 'bun';
   if ('Deno' in globalThis) return 'deno';
