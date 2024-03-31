@@ -1,9 +1,11 @@
-export function bench(name: string, fn: () => any): void;
-export function baseline(name: string, fn: () => any): void;
-
 export function group(fn: () => void): void;
 export function group(name: string, fn: () => void): void;
 export function group(options: { name?: string, summary?: boolean }, fn: () => void): void;
+export function bench(name: string, fn: () => any): void;
+
+export function baseline(name: string, fn: () => any): void;
+
+export function clear(): void;
 
 export function run(options?: {
   avg?: boolean,

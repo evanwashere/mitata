@@ -15,7 +15,7 @@
 
 ## Example
 ```js
-import { run, bench, group, baseline } from 'mitata';
+import { run, bench, group, baseline, clear } from 'mitata';
 
 // deno
 // import { ... } from 'npm:mitata';
@@ -46,6 +46,8 @@ await run({
   min_max: true, // enable/disable min/max column (default: true)
   percentiles: false, // enable/disable percentiles column (default: true)
 });
+
+clear()
 ```
 
 
