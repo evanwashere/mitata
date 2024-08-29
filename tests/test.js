@@ -18,6 +18,14 @@ bench('noop4', function* () {
 bench('noop4err', function* () {
 });
 
+bench('noop5', state => {
+  while (!state.next().done) {}
+});
+
+bench('for resolve', state => {
+  for (const _ of state) +Number('1');
+});
+
 group(() => {
   bench('a', () => {});
   bench('b', () => {});
