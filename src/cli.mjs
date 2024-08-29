@@ -219,9 +219,11 @@ async function cpu() {
 export async function run(opts = {}) {
   const silent = opts.silent || false;
   const log = silent ? () => { } : _print;
+  const empty_fn = await measure(() => { });
   const colors = opts.colors ??= !no_color();
   const json = !!opts.json || (0 === opts.json);
   opts.size = table.size(benchmarks.map(b => b.name));
+  const empty_iter = await measure(state => { for (const _ of state) {} });
 
   const report = {
     benchmarks,
@@ -248,7 +250,7 @@ export async function run(opts = {}) {
 
       try {
         b.stats = await measure(b.fn, {});
-        if (!json) log(table.benchmark(b.name, b.stats, opts));
+        if (!json) log(table.benchmark(b.name, b.stats, opts, empty_fn, empty_iter));
       }
 
       catch (err) {
@@ -272,7 +274,7 @@ export async function run(opts = {}) {
 
         try {
           b.stats = await measure(b.fn, {});
-          if (!json) log(table.benchmark(b.name, b.stats, opts));
+          if (!json) log(table.benchmark(b.name, b.stats, opts, empty_fn, empty_iter));
         }
 
         catch (err) {
