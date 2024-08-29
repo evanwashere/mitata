@@ -8,6 +8,10 @@ const summaries = {};
 const benchmarks = [];
 const groups = new Set;
 const AsyncFunction = (async () => { }).constructor;
+const GeneratorFunction = function* () { }.constructor;
+const AsyncGeneratorFunction = async function* () { }.constructor;
+
+const constructors = [Function, AsyncFunction, GeneratorFunction, AsyncGeneratorFunction];
 
 export function group(name, cb) {
   const o = {
@@ -22,8 +26,8 @@ export function group(name, cb) {
 }
 
 export function bench(name, fn) {
-  if ([Function, AsyncFunction].includes(name.constructor)) (fn = name, name = fn.name);
-  if (![Function, AsyncFunction].includes(fn.constructor)) throw new TypeError(`expected function, got ${fn.constructor.name}`);
+  if (constructors.includes(name.constructor)) (fn = name, name = fn.name);
+  if (!constructors.includes(fn.constructor)) throw new TypeError(`expected function, got ${fn.constructor.name}`);
 
   benchmarks.push({
     fn,
@@ -37,8 +41,8 @@ export function bench(name, fn) {
 };
 
 export function baseline(name, fn) {
-  if ([Function, AsyncFunction].includes(name.constructor)) (fn = name, name = fn.name);
-  if (![Function, AsyncFunction].includes(fn.constructor)) throw new TypeError(`expected function, got ${fn.constructor.name}`);
+  if (constructors.includes(name.constructor)) (fn = name, name = fn.name);
+  if (!constructors.includes(fn.constructor)) throw new TypeError(`expected function, got ${fn.constructor.name}`);
 
   benchmarks.push({
     fn,
@@ -243,7 +247,7 @@ export async function run(opts = {}) {
       _f = true;
 
       try {
-        b.stats = (await measure(b.fn, {})).stats;
+        b.stats = await measure(b.fn, {});
         if (!json) log(table.benchmark(b.name, b.stats, opts));
       }
 
@@ -267,7 +271,7 @@ export async function run(opts = {}) {
         if (group !== b.group) continue;
 
         try {
-          b.stats = (await measure(b.fn, {})).stats;
+          b.stats = await measure(b.fn, {});
           if (!json) log(table.benchmark(b.name, b.stats, opts));
         }
 

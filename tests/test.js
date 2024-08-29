@@ -4,6 +4,20 @@ bench('noop', () => {});
 baseline('aaa', () => {});
 bench('noop2', () => Promise.resolve(1));
 
+bench('noop3', state => {
+  for (const _ of state) {}
+});
+
+bench('noop3err', state => {
+});
+
+bench('noop4', function* () {
+  yield () => {};
+});
+
+bench('noop4err', function* () {
+});
+
 group(() => {
   bench('a', () => {});
   bench('b', () => {});
