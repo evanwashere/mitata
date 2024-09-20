@@ -2,12 +2,12 @@
   "name": "mitata",
   "type": "module",
   "license": "MIT",
-  "version": "0.1.14",
-  "main": "src/cli.mjs",
-  "types": "src/cli.d.ts",
-  "description": "cross-runtime benchmarking lib",
-  "files": ["src", "license", "reporter", "readme.md"],
+  "version": "1.0.0",
+  "main": "src/main.mjs",
+  "files": ["src", "license", "readme.md"],
   "homepage": "https://github.com/evanwashere/mitata#readme",
+  "description": "benchmark tooling that makes your heart warm",
   "bugs": { "url": "https://github.com/evanwashere/mitata/issues" },
-  "repository": { "type": "git", "url": "git+https://github.com/evanwashere/mitata.git" }
+  "repository": { "type": "git", "url": "git+https://github.com/evanwashere/mitata.git" },
+  "keywords": ["cute", "bench", "micro", "library", "benchmark", "performance", "microbenchmark"]
 }
