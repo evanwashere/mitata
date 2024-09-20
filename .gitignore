@@ -1,4 +1,3 @@
 target/
 .DS_Store
-src/lib2.mjs
 node_modules/
