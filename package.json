@@ -2,7 +2,7 @@
   "name": "mitata",
   "type": "module",
   "license": "MIT",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "src/main.mjs",
   "files": ["src", "license", "readme.md"],
   "homepage": "https://github.com/evanwashere/mitata#readme",

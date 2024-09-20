@@ -1,4 +1,4 @@
-import { run, bench, boxplot } from '..';
+import { run, bench, boxplot } from 'mitata';
 
 function bubbleSort(arr) {
   const n = arr.length;

@@ -1,4 +1,4 @@
-import { run, bench, boxplot, summary, compact } from '..';
+import { run, bench, boxplot, summary, compact, barplot } from '..';
 
 function bubbleSort(arr) {
   const n = arr.length;
@@ -59,6 +59,11 @@ compact(() => {
       yield () => Array.from({ length: len });
     }).range('len', 1, 1024);
   });
+});
+
+barplot(() => {
+  bench('1 + 1', () => 1 + 1);
+  bench('Date.now()', () => Date.now());
 });
 
 await run();
