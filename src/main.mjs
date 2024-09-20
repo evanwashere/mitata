@@ -201,7 +201,7 @@ function* unroll() {
 }
 
 function runtime() {
-  if (globalThis.Bun) return 'bun'; if (globalThis.Deno) return 'deno';
+  if (globalThis.Bun) return 'bun'; if (globalThis.Deno) return 'deno'; if (globalThis.HermesInternal) return 'hermes';
   if (globalThis.window && globalThis.navigator) return 'browser'; if (globalThis.process) return 'node'; else return 'unknown';
 }
 
@@ -298,7 +298,7 @@ const formats = {
 
   async mitata(ctx, opts, benchmarks) {
     const $ = {
-      dim: s => !opts.colors ? s : `\x1b[2m${s}\x1b[22m`,
+      dim: s => $.gray(s),
       bold: s => !opts.colors ? s : `\x1b[1m${s}\x1b[22m`,
 
       red: s => !opts.colors ? s : `\x1b[31m${s}\x1b[39m`,
@@ -350,7 +350,7 @@ const formats = {
             if (t <= value) offset = o;
           }
 
-          bar += $.str(name, key).padStart(key) + ' ┤' + $.dim('■').repeat(1 + offset) + ' ' + $.yellow($.time(value)) + ' ' + '\n';
+          bar += $.str(name, key).padStart(key) + ' ┤' + $.gray('■').repeat(1 + offset) + ' ' + $.yellow($.time(value)) + ' ' + '\n';
         }
 
         bar += ' '.repeat(1 + key) + '└' + ' '.repeat(size) + '┘' + '\n';
@@ -386,14 +386,13 @@ const formats = {
         for (let o = 0; o < size; o++) {
           const c = bins[o];
           bins[o] = symbols[(c * scale) | 0];
-          if (c === 0) bins[o] = $.dim(bins[o]);
         }
 
         if (0 !== avg_offset) histogram += $min(bins.slice(0, avg_offset).join(''));
 
         histogram += $avg(bins[avg_offset]);
         if ((size - 1) !== avg_offset) histogram += $max(bins.slice(1 + avg_offset).join(''));
-        if (!compact) histogram += ' ' + $.dim($.magenta(symbols[Math.min((last * scale) | 0, symbols.length - 1)]));
+        if (!compact) histogram += ' ' + $.magenta(symbols[Math.min((last * scale) | 0, symbols.length - 1)]);
 
         return histogram;
       },
@@ -485,19 +484,19 @@ const formats = {
         const rmax = $.time(tmax);
         const rmid = $.time((tmin + tmax) / 2);
         const gap = (size - rmin.length - rmid.length - rmax.length) / 2;
-        box += ' '.repeat(1 + key) + `${$.dim(rmin)}${' '.repeat(gap | 0)} ${$.dim(rmid)} ${' '.repeat(Math.ceil(gap))}${$.dim(rmax)}`;
+        box += ' '.repeat(1 + key) + `${$.gray(rmin)}${' '.repeat(gap | 0)} ${$.gray(rmid)} ${' '.repeat(Math.ceil(gap))}${$.gray(rmax)}`;
 
         return box;
       },
     };
 
-    print($.dim(`clk: ~${ctx.cpu.freq.toFixed(2)} GHz`));
+    print($.gray(`clk: ~${ctx.cpu.freq.toFixed(2)} GHz`));
 
-    print($.dim(`cpu: ${ctx.cpu.name}`));
-    print($.dim(`runtime: ${ctx.runtime} (${ctx.arch})`));
+    print($.gray(`cpu: ${ctx.cpu.name}`));
+    print($.gray(`runtime: ${ctx.runtime} (${ctx.arch})`));
 
     print('');
-    print(' '.repeat(42) + $.dim('histogram: (min … top 1%)'));
+    print(' '.repeat(42) + $.gray('histogram: (min … top 1%)'));
     print(`benchmark ${' '.repeat(12)} avg (min … max) ${' '.repeat(5)} p75 ${' '.repeat(6)} p99 ${' '.repeat(5)} p999`);
 
     let optimized_out_warning = false;
@@ -513,13 +512,13 @@ const formats = {
         const optimized_out = r.stats.avg < (1.21 * noop.avg);
         optimized_out_warning = optimized_out_warning || optimized_out;
         if (!compact) print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.histogram(r.stats, 31, optimized_out)}${!optimized_out ? '' : $.red(' !')}`);
-        else print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.dim($.time(r.stats.p75).padStart(9) + '  ' + $.time(r.stats.p99).padStart(9) + '  ' + $.time(r.stats.p999).padStart(9))} ${optimized_out ? $.red('!') : $.histogram(r.stats, 9, true)}`);
+        else print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9) + '  ' + $.time(r.stats.p99).padStart(9) + '  ' + $.time(r.stats.p999).padStart(9))} ${optimized_out ? $.red('!') : $.histogram(r.stats, 9, true)}`);
 
         if (!compact) print(
           ' '.repeat(15)
-          + ($.dim('(') + $.cyan($.time(r.stats.min))
-            + $.dim(' … ') + $.magenta($.time(r.stats.max)) + $.dim(')')).padStart(23 + (!opts.colors ? 0 : 47))
-          + ' ' + $.dim($.time(r.stats.p75).padStart(9) + '  ' + $.time(r.stats.p99).padStart(9) + '  ' + $.time(r.stats.p999).padStart(9)) + (optimized_out ? '' : $.dim(' <'))
+          + ($.gray('(') + $.cyan($.time(r.stats.min))
+            + $.gray(' … ') + $.magenta($.time(r.stats.max)) + $.gray(')')).padStart(23 + (!opts.colors ? 0 : 50))
+          + ' ' + $.gray($.time(r.stats.p75).padStart(9) + '  ' + $.time(r.stats.p99).padStart(9) + '  ' + $.time(r.stats.p999).padStart(9)) + (optimized_out ? '' : $.gray(' <'))
         );
       }
     }
@@ -532,7 +531,7 @@ const formats = {
         if (!first && prev_group) {
           print('');
           prev_group = false;
-          print($.dim(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
+          print($.gray(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
         };
 
         if (!opts.filter.test(g._name)) continue;
@@ -549,7 +548,7 @@ const formats = {
           if (filtered.length) {
             if (!first) {
               print('');
-              print($.dim(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
+              print($.gray(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
             }
 
             first = false;
@@ -564,7 +563,7 @@ const formats = {
           if (filtered.length) {
             if (!first) {
               print('');
-              print($.dim(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
+              print($.gray(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
             }
 
             first = false;
@@ -607,7 +606,7 @@ const formats = {
           if (filtered.length) {
             if (!first) {
               print('');
-              print($.dim(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
+              print($.gray(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
             }
 
             first = false;
@@ -674,7 +673,7 @@ const formats = {
           if (filtered.length) {
             if (!first) {
               print('');
-              print($.dim(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
+              print($.gray(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
             }
 
             first = false;
@@ -789,6 +788,6 @@ const formats = {
       }
     }
 
-    if (optimized_out_warning) (print(''), print(`${$.red('!')} ${$.dim('=')} benchmark was likely optimized out ${$.dim('(dead code elimination)')}`));
+    if (optimized_out_warning) (print(''), print(`${$.red('!')} ${$.gray('=')} benchmark was likely optimized out ${$.gray('(dead code elimination)')}`));
   },
 };
