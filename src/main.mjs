@@ -358,43 +358,53 @@ const formats = {
         return bar;
       },
 
-      histogram(stats, size = 8, compact = false) {
-        const bins = new Array(size).fill(0);
+      histogram(stats, width = 6, height = 2) {
+        let histogram = new Array(height);
+        const p99_offset = (.99 * stats.samples.length) | 0;
         const symbols = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
         function clamp(m, v, x) { return v < m ? m : v > x ? x : v; }
-        const samples = stats.samples.slice(0, (.99 * stats.samples.length) | 0);
+        const $min = $.cyan; const $avg = $.yellow; const $max = $.magenta;
+        for (let o = 0; o < height; o++) histogram[o] = new Array(width).fill(' ');
 
-        const $min = $.cyan;
-        const $avg = $.yellow;
-        const $max = $.magenta;
 
-        let last = 0;
-        const ravg = stats.avg;
-        const min = samples[0];
-        const max = samples[samples.length - 1];
+        const avg = stats.avg;
+        const min = stats.min; const max = stats.p99;
+        const outliers = stats.samples.length - p99_offset;
 
-        const width = (max - min) / (size - 1);
-        for (const s of samples) bins[clamp(0, Math.round((s - min) / width), size - 1)]++;
-        for (let o = (.99 * stats.samples.length) | 0; o < stats.samples.length; o++) last++;
+        const bins = new Array(width).fill(0);
+        const step = (max - min) / (width - 1);
+        const avg_offset = clamp(0, Math.round((avg - min) / step), bins.length - 1);
 
-        const peak = Math.max(...bins);
-        const avg_offset = clamp(0, Math.round((ravg - min) / width), size - 1);
-
-        let histogram = '';
-        const scale = (symbols.length - 1) / peak;
-
-        for (let o = 0; o < size; o++) {
-          const c = bins[o];
-          bins[o] = symbols[(c * scale) | 0];
+        for (let o = 0; o < p99_offset; o++) {
+          const s = stats.samples[o];
+          bins[clamp(0, Math.round((s - min) / step), bins.length - 1)]++;
         }
 
-        if (0 !== avg_offset) histogram += $min(bins.slice(0, avg_offset).join(''));
+        const peak = Math.max(...bins);
+        const scale = (height * symbols.length - 1) / peak;
 
-        histogram += $avg(bins[avg_offset]);
-        if ((size - 1) !== avg_offset) histogram += $max(bins.slice(1 + avg_offset).join(''));
-        if (!compact) histogram += ' ' + $.magenta(symbols[Math.min((last * scale) | 0, symbols.length - 1)]);
+        for (let o = 0; o < bins.length; o++) {
+          const b = bins[o];
+          let s = Math.round(b * scale);
 
-        return histogram;
+          for (let h = 0; h < height; h++) {
+            const leftover = s - symbols.length;
+            histogram[h][o] = symbols[clamp(0, s, symbols.length - 1)]; if (0 >= (s = leftover)) break;
+          }
+        }
+
+        for (let h = 0; h < height; h++) {
+          let l = '';
+
+          { const ll = histogram[h].slice(0, avg_offset); if (ll.length) l += $min(ll.join('')); }
+
+          l += $avg(histogram[h][avg_offset]);
+          { const ll = histogram[h].slice(1 + avg_offset); if (ll.length) l += $max(ll.join('')); }
+
+          histogram[h] = l;
+        }
+
+        return histogram.reverse();
       },
 
       boxplot(map, key = 8, size = 14) {
@@ -496,8 +506,7 @@ const formats = {
     print($.gray(`runtime: ${ctx.runtime} (${ctx.arch})`));
 
     print('');
-    print(' '.repeat(42) + $.gray('histogram: (min … top 1%)'));
-    print(`benchmark ${' '.repeat(12)} avg (min … max) ${' '.repeat(5)} p75 ${' '.repeat(6)} p99 ${' '.repeat(5)} p999`);
+    print(`benchmark ${' '.repeat(12)} avg (min … max) p75   p99    ${$.gray('(min … top 1%)')}`);
 
     let optimized_out_warning = false;
     print(`${'-'.repeat(38)} ${'-'.repeat(31)}`);
@@ -511,15 +520,22 @@ const formats = {
 
         const optimized_out = r.stats.avg < (1.21 * noop.avg);
         optimized_out_warning = optimized_out_warning || optimized_out;
-        if (!compact) print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.histogram(r.stats, 31, optimized_out)}${!optimized_out ? '' : $.red(' !')}`);
-        else print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9) + '  ' + $.time(r.stats.p99).padStart(9) + '  ' + $.time(r.stats.p999).padStart(9))} ${optimized_out ? $.red('!') : $.histogram(r.stats, 9, true)}`);
 
-        if (!compact) print(
-          ' '.repeat(15)
-          + ($.gray('(') + $.cyan($.time(r.stats.min))
-            + $.gray(' … ') + $.magenta($.time(r.stats.max)) + $.gray(')')).padStart(23 + (!opts.colors ? 0 : 50))
-          + ' ' + $.gray($.time(r.stats.p75).padStart(9) + '  ' + $.time(r.stats.p99).padStart(9) + '  ' + $.time(r.stats.p999).padStart(9)) + (optimized_out ? '' : $.gray(' <'))
-        );
+        if (compact) {
+          print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9) + '  ' + $.time(r.stats.p99).padStart(9))} ${optimized_out ? $.red('!') : $.histogram(r.stats, 10, 1)}`);
+        }
+
+        else {
+          const histogram = $.histogram(r.stats, 21, 2);
+          print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9))} ${histogram[0]}${!optimized_out ? '' : $.red(' !')}`);
+
+          print(
+            ' '.repeat(15)
+            + ($.gray('(') + $.cyan($.time(r.stats.min))
+              + $.gray(' … ') + $.magenta($.time(r.stats.max)) + $.gray(')')).padStart(23 + (!opts.colors ? 0 : 50))
+            + ' ' + $.gray($.time(r.stats.p99).padStart(9)) + ' ' + histogram[1]
+          );
+        }
       }
     }
 
@@ -583,7 +599,7 @@ const formats = {
                 print('');
                 const map = {};
                 for (const r of runs) map[r.name] = r.stats.avg;
-                $.barplot(map, 23, 46).split('\n').forEach(l => print(l));
+                $.barplot(map, 23, 44).split('\n').forEach(l => print(l));
               }
             }
 
@@ -596,7 +612,7 @@ const formats = {
 
               if (Object.keys(map).length) {
                 print('');
-                $.barplot(map, 23, 46).split('\n').forEach(l => print(l));
+                $.barplot(map, 23, 44).split('\n').forEach(l => print(l));
               }
             }
           }
@@ -626,7 +642,7 @@ const formats = {
                 print('');
                 const map = {};
                 for (const r of runs) map[r.name] = r.stats;
-                $.boxplot(map, 23, 46).split('\n').forEach(l => print(l));
+                $.boxplot(map, 23, 44).split('\n').forEach(l => print(l));
               }
             }
 
@@ -663,7 +679,7 @@ const formats = {
 
               if (Object.keys(map).length) {
                 print('');
-                $.boxplot(map, 23, 46).split('\n').forEach(l => print(l));
+                $.boxplot(map, 23, 44).split('\n').forEach(l => print(l));
               }
             }
           }
