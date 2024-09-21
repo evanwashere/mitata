@@ -1,19 +1,21 @@
 <h1 align=center>mitata</h1>
-<div align=center>benchmark tooling that makes your heart warm</div>
+<div align=center>benchmark tooling that loves you ❤️</div>
 <br />
 
 <div align="center">
-  <img width=68% src="https://cdn.evan.lol/mitata1.gif"></img>
+  <img width=68% src="https://cdn.evan.lol/mitata1_readme.gif"></img>
 </div>
 
 <br />
 
 ### Install
+
 `bun add mitata`
 
 `npm install mitata`
 
 ## Quick Start
+
 ```js
 import { run, bench, boxplot } from 'mitata';
 
@@ -44,17 +46,18 @@ await run({ filter: /new Array.*/ }) // only run benchmarks that match regex fil
 await run({ throw: true }); // will immediately throw instead of handling error quietly
 ```
 
-## broad engine support
+## universal compatibility
 
-Out of box mitata can detect runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/2ecd49e5836b7b124c7ea2d4836fdfd8db3c5641/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
+Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/2ecd49e5836b7b124c7ea2d4836fdfd8db3c5641/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
 
 ## argumentizing your benchmarks has never been so easy
-With other benchmarking libraries, it has always been hard to easily make benchmarks that go over a range or run the same function with different arguments. Now with mitata you can easily add arguments to any benchmark without needing to write spaghetti wrappers.
+
+With other benchmarking libraries, often it's quite hard to easily make benchmarks that go over a range or run the same function with different arguments without writing spaghetti code, but now with mitata converting your benchmark to use arguments is just a function call away.
 
 ```js
 import { bench } from 'mitata';
 
-bench(function* look_mom(state) {
+bench(function* look_mom_no_spaghetti(state) {
   const len = state.get('len');
   const len2 = state.get('len2');
   yield () => new Array(len * len2);
@@ -70,95 +73,97 @@ bench(function* look_mom(state) {
 
 For those who love doing micro-benchmarks, mitata can automatically detect and inform you about optimization passes like dead code elimination without requiring any special engine flags.
 
-```js
+```rust
 -------------------------------------- -------------------------------
-1 + 1                   316.09 ps/iter ▁▁▁▁▁▁▁▁▁▁█▁▁▁▁▄▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ !
-                (267.92 ps … 16.72 ns) 325.37 ps  382.81 ps  440.72 ps
-empty function          318.63 ps/iter ▁▁▁▁▁▁▁▁▁▁█▁▁▁▁▄▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ !
-                (267.92 ps … 13.69 ns) 325.37 ps  382.81 ps    2.11 ns
-                
+1 + 1                   318.63 ps/iter 325.37 ps        ▇  █           !
+                (267.92 ps … 14.28 ns) 382.81 ps ▁▁▁▁▁▁▁█▁▁█▁▁▁▁▁▁▁▁▁▁
+empty function          319.36 ps/iter 325.37 ps          █ ▅          !
+                (248.62 ps … 46.61 ns) 382.81 ps ▁▁▁▁▁▁▃▁▁█▁█▇▁▁▁▁▁▁▁▁
+
 ! = benchmark was likely optimized out (dead code elimination)
 ```
 
 ## powerful visualizations right in your terminal
 
-mitata can render your benchmarks to ASCII barplots, boxplots, histograms, and clear summaries without any additional dependencies.
+with mitata’s ascii rendering capabilities, now you can easily visualize samples in barplots, boxplots, histograms, and get clear summaries without any additional tools or dependencies.
 
 ```rust
 -------------------------------------- -------------------------------
-1 + 1                   319.04 ps/iter ▁▁▁▁▁▁▁▁▁▁▇▁▁▁▁█▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ !
-                (267.92 ps … 15.78 ns) 325.37 ps  382.81 ps  459.56 ps
-Date.now()               27.59 ns/iter ▁▁▂█▄▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ ▁
-                 (27.17 ns … 34.10 ns)  27.55 ns   29.68 ns   32.34 ns <
+1 + 1                   318.11 ps/iter 325.37 ps         ▇   █         !
+                (267.92 ps … 11.14 ns) 363.97 ps ▁▁▁▁▁▁▁▁█▁▁▁█▁▁▁▁▁▁▁▁
+Date.now()               27.69 ns/iter  27.48 ns  █                   
+                 (27.17 ns … 44.10 ns)  32.74 ns ▃█▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
 
-                        ┌                                              ┐
-                  1 + 1 ┤■ 319.04 ps 
-             Date.now() ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 27.59 ns 
-                        └                                              ┘
+                        ┌                                            ┐
+                  1 + 1 ┤■ 318.11 ps 
+             Date.now() ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 27.69 ns 
+                        └                                            ┘
 
 -------------------------------------- -------------------------------
-Bubble Sort               2.13 ms/iter ▂▄▅█▄▃▂▂▁▂▃▄▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ ▁
-                   (1.79 ms … 7.54 ms)   2.29 ms    5.47 ms    7.54 ms <
-Quick Sort              169.72 µs/iter ▁█▅▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ ▁
-               (137.75 µs … 873.83 µs) 165.38 µs  585.38 µs  802.96 µs <
-Native Sort              97.46 µs/iter ▁▁▁▁▁▃▇█▅▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ ▁
-                (92.29 µs … 548.13 µs)  97.67 µs  109.38 µs  121.67 µs <
+Bubble Sort               2.11 ms/iter   2.26 ms  █                   
+                   (1.78 ms … 6.93 ms)   4.77 ms ▃█▃▆▅▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+Quick Sort              159.60 µs/iter 154.50 µs  █                   
+               (133.13 µs … 792.21 µs) 573.00 µs ▅█▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+Native Sort              97.20 µs/iter  97.46 µs        ██            
+                (90.88 µs … 688.92 µs) 105.00 µs ▁▁▂▁▁▂▇██▇▃▃▃▃▃▂▂▂▁▁▁
 
-                        ┌                                              ┐
-                                       ╷┌─┬┐                           ╷
-            Bubble Sort                ├┤ │├───────────────────────────┤
-                                       ╵└─┴┘                           ╵
+                        ┌                                            ┐
+                                        ╷┌─┬─┐                       ╷
+            Bubble Sort                 ├┤ │ ├───────────────────────┤
+                                        ╵└─┴─┘                       ╵
                         ┬   ╷
              Quick Sort │───┤
                         ┴   ╵
                         ┬
             Native Sort │
                         ┴
-                        └                                              ┘
-                        92.29 µs             2.78 ms             5.47 ms
+                        └                                            ┘
+                        90.88 µs            2.43 ms            4.77 ms
 
 -------------------------------------- -------------------------------
-new Array(1)              3.56 ns/iter   3.18 ns    6.70 ns  163.70 ns ▁▇▂▁▁▁▁▁▁
-new Array(8)              5.18 ns/iter   4.37 ns    8.92 ns  182.83 ns ▁▅█▁▁▁▁▁▁
-new Array(64)            17.99 ns/iter  13.81 ns  160.50 ns  230.60 ns █▂▁▁▁▁▁▁▁
-new Array(512)          207.45 ns/iter 265.53 ns  623.54 ns    1.38 µs █▄▃▃▁▁▁▁▁
-new Array(1024)         344.15 ns/iter 438.99 ns  528.57 ns  952.57 ns █▃▁▁▁▄▅▂▁
-Array.from(1)            29.78 ns/iter  29.22 ns   38.05 ns  202.32 ns ▁█▂▁▁▁▁▁▁
-Array.from(8)            34.10 ns/iter  33.57 ns   43.35 ns  230.79 ns ▂█▂▁▁▁▁▁▁
-Array.from(64)          145.14 ns/iter 141.49 ns  312.88 ns  354.53 ns ▇▃▁▁▁▁▁▁▁
-Array.from(512)           1.11 µs/iter   1.18 µs    1.36 µs    1.38 µs ▁▄▇▂▃▃▂▁▁
-Array.from(1024)          1.94 µs/iter   2.02 µs    2.34 µs    2.35 µs ▄▄▄▅█▃▂▁▁
+new Array(1)              3.57 ns/iter   3.20 ns    6.64 ns ▁█▄▂▁▁▁▁▁▁
+new Array(8)              5.21 ns/iter   4.31 ns    8.85 ns ▁█▄▁▁▁▁▁▁▁
+new Array(64)            17.94 ns/iter  13.40 ns  171.89 ns █▂▁▁▁▁▁▁▁▁
+new Array(512)          188.05 ns/iter 246.88 ns  441.81 ns █▃▃▃▃▂▂▁▁▁
+new Array(1024)         364.93 ns/iter 466.91 ns  600.34 ns █▄▁▁▁▅▅▃▂▁
+Array.from(1)            29.73 ns/iter  29.24 ns   36.88 ns ▁█▄▃▂▁▁▁▁▁
+Array.from(8)            33.96 ns/iter  32.99 ns   42.45 ns ▂█▄▂▂▁▁▁▁▁
+Array.from(64)          146.52 ns/iter 143.82 ns  310.93 ns █▅▁▁▁▁▁▁▁▁
+Array.from(512)           1.11 µs/iter   1.18 µs    1.34 µs ▃▅█▂▆▅▄▂▂▁
+Array.from(1024)          1.98 µs/iter   2.09 µs    2.40 µs ▃█▃▃▇▇▄▂▁▁
 
 summary
   new Array($len)
-   5.63…8.36x faster than Array.from($len)
-
+   5.42…8.33x faster than Array.from($len)
 ```
 
 ## give your own code power of mitata
 
-mitata exposes its powerful building blocks to allow anyone to build and explore on top of its tooling and compatibility with various engines and runtimes.
+In case you don’t need all the fluff that comes with mitata or just need raw results, mitata exports its fundamental building blocks to allow you to easily build your own tooling and wrappers without losing any core benefits of using mitata.
 
 ```js
 import { B, measure } from 'mitata';
 
-const stats = await measure(() => fibonacci(10), {
-  min_warmup_samples: 1000,
+// lowest level for power users
+const stats = await measure(function* (state) {
+  const size = state.get('x');
+  yield () => new Array(size);
+}, {
+  args: { x: 1 },
+  batch_samples: 5 * 1024,
+  min_cpu_time: 1000 * 1e6,
 });
 
-await measure(state => {
-  const size = state.get('x');
-  for (const _ of state) new Array(size);
-}, { args: { x: 1 } });
+// explore how magic happens
+console.log(stats.debug) // -> jit optimized source code of benchmark
 
-console.log(stats._debug) // -> source code of benchmark
-
+// higher level api that includes mitata's argument and range features
 const b = new B('new Array($x)', state => {
   const size = state.get('x');
   for (const _ of state) new Array(size);
 }).args('x', [1, 5, 10]);
 
-const result = await b.run();
+const trial = await b.run();
 ```
 
 ## License

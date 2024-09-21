@@ -168,12 +168,12 @@ export async function iter(iter, opts = {}) {
   const _ = {};
   defaults(opts);
   let samples = [];
+  const _i = { next() { return _.next() } };
 
   const ctx = {
-    next() { return _.next() },
-    [Symbol.iterator]() { return this },
+    [Symbol.iterator]() { return _i },
+    [Symbol.asyncIterator]() { return _i },
     get(name) { return opts.args?.[name] },
-    [Symbol.asyncIterator]() { return this },
   };
 
   const gen = (function* () {
