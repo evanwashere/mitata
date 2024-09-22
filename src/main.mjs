@@ -327,10 +327,10 @@ const formats = {
       },
 
       barplot(map, key = 8, size = 14) {
-        let bar = '';
+        let barplot = '';
         let tmin = Infinity;
         let tmax = -Infinity;
-        bar += ' '.repeat(1 + key) + '┌' + ' '.repeat(size) + '┐' + '\n';
+        barplot += ' '.repeat(1 + key) + '┌' + ' '.repeat(size) + '┐' + '\n';
 
         for (const name in map) {
           const value = map[name];
@@ -350,35 +350,42 @@ const formats = {
             if (t <= value) offset = o;
           }
 
-          bar += $.str(name, key).padStart(key) + ' ┤' + $.gray('■').repeat(1 + offset) + ' ' + $.yellow($.time(value)) + ' ' + '\n';
+          barplot += $.str(name, key).padStart(key) + ' ┤' + $.gray('■').repeat(1 + offset) + ' ' + $.yellow($.time(value)) + ' ' + '\n';
         }
 
-        bar += ' '.repeat(1 + key) + '└' + ' '.repeat(size) + '┘' + '\n';
+        barplot += ' '.repeat(1 + key) + '└' + ' '.repeat(size) + '┘' + '\n';
 
-        return bar;
+        return barplot;
+      },
+
+      bins(stats, size = 6, percentile = 1) {
+        function clamp(m, v, x) { return v < m ? m : v > x ? x : v; }
+        const poffset = (percentile * (stats.samples.length - 1)) | 0;
+
+        const min = stats.min;
+        const max = stats.samples[poffset];
+        const bins = new Array(size).fill(0);
+        const step = (max - min) / (size - 1);
+
+        for (let o = 0; o < poffset; o++) {
+          const s = stats.samples[o];
+          bins[clamp(0, Math.round((s - min) / step), size - 1)]++;
+        }
+
+        return {
+          min, max, step, bins,
+          outliers: stats.samples.length - 1 - poffset,
+          avg: clamp(0, Math.round((stats.avg - min) / step), size - 1),
+        };
       },
 
       histogram(stats, width = 6, height = 2) {
         let histogram = new Array(height);
-        const p99_offset = (.99 * stats.samples.length) | 0;
+        const { avg, bins } = $.bins(stats, width, .99);
         const symbols = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
         function clamp(m, v, x) { return v < m ? m : v > x ? x : v; }
         const $min = $.cyan; const $avg = $.yellow; const $max = $.magenta;
         for (let o = 0; o < height; o++) histogram[o] = new Array(width).fill(' ');
-
-
-        const avg = stats.avg;
-        const min = stats.min; const max = stats.p99;
-        const outliers = stats.samples.length - p99_offset;
-
-        const bins = new Array(width).fill(0);
-        const step = (max - min) / (width - 1);
-        const avg_offset = clamp(0, Math.round((avg - min) / step), bins.length - 1);
-
-        for (let o = 0; o < p99_offset; o++) {
-          const s = stats.samples[o];
-          bins[clamp(0, Math.round((s - min) / step), bins.length - 1)]++;
-        }
 
         const peak = Math.max(...bins);
         const scale = (height * symbols.length - 1) / peak;
@@ -396,10 +403,10 @@ const formats = {
         for (let h = 0; h < height; h++) {
           let l = '';
 
-          { const ll = histogram[h].slice(0, avg_offset); if (ll.length) l += $min(ll.join('')); }
+          { const ll = histogram[h].slice(0, avg); if (ll.length) l += $min(ll.join('')); }
 
-          l += $avg(histogram[h][avg_offset]);
-          { const ll = histogram[h].slice(1 + avg_offset); if (ll.length) l += $max(ll.join('')); }
+          l += $avg(histogram[h][avg]);
+          { const ll = histogram[h].slice(1 + avg); if (ll.length) l += $max(ll.join('')); }
 
           histogram[h] = l;
         }
@@ -408,11 +415,11 @@ const formats = {
       },
 
       boxplot(map, key = 8, size = 14) {
-        let box = '';
+        let boxplot = '';
         let tmin = Infinity;
         let tmax = -Infinity;
         const steps = 2 + size;
-        box += ' '.repeat(1 + key) + '┌' + ' '.repeat(size) + '┐' + '\n';
+        boxplot += ' '.repeat(1 + key) + '┌' + ' '.repeat(size) + '┐' + '\n';
 
         for (const name in map) {
           const stats = map[name];
@@ -482,21 +489,21 @@ const formats = {
             for (let o = 1 + Math.max(avg_offset, p75_offset); o < max_offset; o++) m[o] = $.magenta('─');
           }
 
-          box +=
+          boxplot +=
             ' '.repeat(1 + key) + u.join('')
             + '\n' + $.str(name, key).padStart(key) + ' '
             + m.join('') + '\n' + ' '.repeat(1 + key) + l.join('') + '\n';
         }
 
-        box += ' '.repeat(1 + key) + '└' + ' '.repeat(size) + '┘' + '\n';
+        boxplot += ' '.repeat(1 + key) + '└' + ' '.repeat(size) + '┘' + '\n';
 
         const rmin = $.time(tmin);
         const rmax = $.time(tmax);
         const rmid = $.time((tmin + tmax) / 2);
         const gap = (size - rmin.length - rmid.length - rmax.length) / 2;
-        box += ' '.repeat(1 + key) + `${$.gray(rmin)}${' '.repeat(gap | 0)} ${$.gray(rmid)} ${' '.repeat(Math.ceil(gap))}${$.gray(rmax)}`;
+        boxplot += ' '.repeat(1 + key) + `${$.gray(rmin)}${' '.repeat(gap | 0)} ${$.gray(rmid)} ${' '.repeat(Math.ceil(gap))}${$.gray(rmax)}`;
 
-        return box;
+        return boxplot;
       },
     };
 
