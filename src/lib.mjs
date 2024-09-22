@@ -86,10 +86,10 @@ export function kind(fn) {
 export const k_min_samples = 2;
 export const k_max_samples = 1e9;
 export const k_warmup_samples = 2;
-export const k_batch_samples = 2176;
+export const k_batch_samples = 2240;
 export const k_samples_threshold = 5;
 export const k_batch_threshold = 65536;
-export const k_min_cpu_time = 640 * 1e6;
+export const k_min_cpu_time = 642 * 1e6;
 export const k_warmup_threshold = 500_000;
 
 function defaults(opts) {
@@ -147,12 +147,12 @@ export async function fn(fn, opts = {}) {
       samples,
       min: samples[0],
       max: samples[samples.length - 1],
-      p25: samples[(.25 * samples.length) | 0],
-      p50: samples[(.50 * samples.length) | 0],
-      p75: samples[(.75 * samples.length) | 0],
-      p99: samples[(.99 * samples.length) | 0],
-      p999: samples[(.999 * samples.length) | 0],
-      avg: samples.reduce((a, b) => a + b, 0) / samples.length,
+      p25: samples[(.25 * (samples.length - 1)) | 0],
+      p50: samples[(.50 * (samples.length - 1)) | 0],
+      p75: samples[(.75 * (samples.length - 1)) | 0],
+      p99: samples[(.99 * (samples.length - 1)) | 0],
+      p999: samples[(.999 * (samples.length - 1)) | 0],
+      avg: samples.reduce((a, v) => a + v, 0) / samples.length,
       ticks: samples.length ${!batch ? '' : `* ${opts.batch_samples}`},
     };
   `);
@@ -224,12 +224,12 @@ export async function iter(iter, opts = {}) {
     debug: _.debug,
     min: samples[0],
     max: samples[samples.length - 1],
-    p25: samples[(.25 * samples.length) | 0],
-    p50: samples[(.50 * samples.length) | 0],
-    p75: samples[(.75 * samples.length) | 0],
-    p99: samples[(.99 * samples.length) | 0],
-    p999: samples[(.999 * samples.length) | 0],
-    avg: samples.reduce((a, b) => a + b, 0) / samples.length,
+    p25: samples[(.25 * (samples.length - 1)) | 0],
+    p50: samples[(.50 * (samples.length - 1)) | 0],
+    p75: samples[(.75 * (samples.length - 1)) | 0],
+    p99: samples[(.99 * (samples.length - 1)) | 0],
+    p999: samples[(.999 * (samples.length - 1)) | 0],
+    avg: samples.reduce((a, v) => a + v, 0) / samples.length,
     ticks: samples.length * (!_.batch ? 1 : opts.batch_samples),
   };
 }
