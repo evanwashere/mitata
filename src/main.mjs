@@ -184,17 +184,17 @@ export function summary(f) {
   else return r.then(() => (g_benchmarks = old, void 0));
 }
 
-// export function lineplot(f) {
-//   const old = g_benchmarks;
-//   const g = g_benchmarks = [];
+export function lineplot(f) {
+  const old = g_benchmarks;
+  const g = g_benchmarks = [];
 
-//   g.t = 'l';
-//   old.push(g);
-//   const r = f();
+  g.t = 'l';
+  old.push(g);
+  const r = f();
 
-//   if (!(r instanceof Promise)) g_benchmarks = old;
-//   else return r.then(() => (g_benchmarks = old, void 0));
-// }
+  if (!(r instanceof Promise)) g_benchmarks = old;
+  else return r.then(() => (g_benchmarks = old, void 0));
+}
 
 function* unroll() {
   for (const t of g_benchmarks) if (!t.t) yield t; else yield* t;
@@ -310,6 +310,7 @@ const formats = {
       green: s => !opts.colors ? s : `\x1b[32m${s}\x1b[39m`,
       yellow: s => !opts.colors ? s : `\x1b[33m${s}\x1b[39m`,
       magenta: s => !opts.colors ? s : `\x1b[35m${s}\x1b[39m`,
+      colors: ['red', 'cyan', 'white', 'green', 'yellow', 'magenta', 'blue', 'black', 'gray'],
 
       str(s, len = 3) {
         if (len >= s.length) return s;
@@ -374,6 +375,7 @@ const formats = {
 
         return {
           min, max, step, bins,
+          peak: Math.max(...bins),
           outliers: stats.samples.length - 1 - poffset,
           avg: clamp(0, Math.round((stats.avg - min) / step), size - 1),
         };
@@ -381,13 +383,12 @@ const formats = {
 
       histogram(stats, width = 6, height = 2) {
         let histogram = new Array(height);
-        const { avg, bins } = $.bins(stats, width, .99);
+        const { avg, peak, bins } = $.bins(stats, width, .99);
         const symbols = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
         function clamp(m, v, x) { return v < m ? m : v > x ? x : v; }
         const $min = $.cyan; const $avg = $.yellow; const $max = $.magenta;
         for (let o = 0; o < height; o++) histogram[o] = new Array(width).fill(' ');
 
-        const peak = Math.max(...bins);
         const scale = (height * symbols.length - 1) / peak;
 
         for (let o = 0; o < bins.length; o++) {
@@ -412,6 +413,121 @@ const formats = {
         }
 
         return histogram.reverse();
+      },
+
+      lineplot(map, {
+        xmin = 0, ymin = 0,
+        xmax = 1, ymax = 1,
+        width = 12, height = 12, legend = 12,
+      } = {}) {
+        xmin ??= 0; xmax ??= 1;
+        ymin ??= 0; ymax ??= 1;
+        const keys = Object.keys(map);
+        const canvas = $.braille(width, height);
+        const xs = (canvas.vwidth - 1) / (xmax - xmin);
+        const ys = (canvas.vheight - 1) / (ymax - ymin);
+
+        for (const name in map) {
+          const k = keys.indexOf(name);
+          const { x: xp, y: yp } = map[name];
+
+          for (let o = 0; o < (xp.length - 1); o++) {
+            if (null == xp[o] || null == xp[o + 1]) continue;
+            if (null == yp[o] || null == yp[o + 1]) continue;
+            const s = { x: Math.round(xs * (xp[o] - xmin)), y: canvas.vheight - 1 - Math.round(ys * (yp[o] - ymin)) };
+            const e = { x: Math.round(xs * (xp[o + 1] - xmin)), y: canvas.vheight - 1 - Math.round(ys * (yp[o + 1] - ymin)) };
+
+            canvas.line(s, e, 1 + (k % $.colors.length));
+          }
+        }
+
+        let lineplot = '';
+        lineplot += ' '.repeat(legend) + ' ' + '┌' + ' '.repeat(canvas.width) + '┐';
+
+        const plot = canvas.toString({
+          format(x, y, s, tag) {
+            const k = keys[tag - 1];
+            if (!map[k].format) return $[$.colors[tag - 1]](s);
+
+            return map[k].format(x, y, s, tag);
+          },
+        }).split('\n');
+
+        const legends = keys.map(k => $[$.colors[keys.indexOf(k) % $.colors.length]]($.str(k, legend).padStart(legend)));
+
+        plot.forEach((l, o) => lineplot += '\n' + (legends[o] ?? ' '.repeat(legend)) + '  ' + l);
+        return lineplot += '\n' + ' '.repeat(legend) + ' ' + '└' + ' '.repeat(canvas.width) + '┘';
+      },
+
+      braille(width, height) {
+        const vwidth = 2 * width;
+        const vheight = 4 * height;
+        const buffer = new Uint8Array(vwidth * vheight);
+
+        const symbols = [
+          0x2801, 0x2802, 0x2804, 0x2840,
+          0x2808, 0x2810, 0x2820, 0x2880,
+        ];
+
+        return {
+          buffer,
+          width, height,
+          vwidth, vheight,
+
+          set(x, y, tag = 1) {
+            buffer[x + y * vwidth] = tag;
+          },
+
+          line(s, e, tag = 1) {
+            s.x = Math.round(s.x); s.y = Math.round(s.y);
+            e.x = Math.round(e.x); e.y = Math.round(e.y);
+            const dx = Math.abs(e.x - s.x); const dy = Math.abs(e.y - s.y);
+
+            let err = dx - dy;
+            let x = s.x; let y = s.y;
+            const sx = s.x < e.x ? 1 : -1;
+            const sy = s.y < e.y ? 1 : -1;
+
+            while (true) {
+              buffer[x + y * vwidth] = tag;
+              if (x === e.x && y === e.y) break;
+
+              const e2 = 2 * err;
+              if (e2 < dx) (y += sy, err += dx);
+              if (e2 > -dy) (x += sx, err -= dy);
+            }
+          },
+
+          toString({
+            background = false,
+            format = (s, tag) => s,
+          } = {}) {
+            let plot = '';
+
+            for (let y = 0; y < vheight; y += 4) {
+              const y0 = y * vwidth;
+              const y1 = y0 + vwidth;
+              const y2 = y1 + vwidth;
+              const y3 = y2 + vwidth;
+
+              for (let x = 0; x < vwidth; x += 2) {
+                let c = 0x2800;
+
+                if (buffer[x + y0]) c |= symbols[0]; if (buffer[1 + x + y0]) c |= symbols[4];
+                if (buffer[x + y1]) c |= symbols[1]; if (buffer[1 + x + y1]) c |= symbols[5];
+                if (buffer[x + y2]) c |= symbols[2]; if (buffer[1 + x + y2]) c |= symbols[6];
+                if (buffer[x + y3]) c |= symbols[3]; if (buffer[1 + x + y3]) c |= symbols[7];
+
+                if (c === 0x2800 && !background) plot += ' ';
+                else plot += format(x / vwidth, y / vheight, String.fromCharCode(c), buffer[x + y0] || buffer[1 + x + y0] || buffer[x + y1] || buffer[1 + x + y1] || buffer[x + y2] || buffer[1 + x + y2] || buffer[x + y3] || buffer[1 + x + y3]);
+              }
+
+              if (y !== vheight - 4) plot += '\n';
+            }
+
+            return plot;
+          },
+        };
       },
 
       boxplot(map, key = 8, size = 14) {
@@ -513,7 +629,7 @@ const formats = {
     print($.gray(`runtime: ${ctx.runtime} (${ctx.arch})`));
 
     print('');
-    print(`benchmark ${' '.repeat(12)} avg (min … max) p75   p99    ${$.gray('(min … top 1%)')}`);
+    print(`benchmark ${' '.repeat(12)} avg (min … max) p75   p99    (min … top 1%)`);
 
     let optimized_out_warning = false;
     print(`${'-'.repeat(38)} ${'-'.repeat(31)}`);
@@ -579,6 +695,102 @@ const formats = {
 
           for (const b of filtered) {
             print_run(b, (benchmarks.push(await b.run(opts.throw)), benchmarks[benchmarks.length - 1]));
+          }
+        }
+
+        if ('l' === g.t) {
+          if (filtered.length) {
+            if (!first) {
+              print('');
+              print($.gray(`${'-'.repeat(38)} ${'-'.repeat(31)}`));
+            }
+
+            first = false;
+            const l_benchmarks = [];
+
+            for (const b of filtered) {
+              const run = (benchmarks.push(await b.run(opts.throw)), benchmarks[benchmarks.length - 1]);
+
+              print_run(b, run);
+              l_benchmarks.push(run);
+            }
+
+            if (1 === l_benchmarks.length) {
+              const runs = l_benchmarks[0].runs.filter(r => r.stats);
+
+              if (runs.length) {
+                print('');
+                const map = {};
+                let xmax = null;
+                let ymin = null;
+
+                if (1 === runs.length) {
+                  const { avg, peak, bins } = $.bins(runs[0].stats, 44, .99);
+
+                  xmax = (bins.length - 1) / bins.length;
+
+                  map[runs[0].name] = {
+                    y: bins.map(b => b / peak),
+                    x: bins.map((_, i) => i / bins.length),
+
+                    format: (x, y, s, tag) => {
+                      x = Math.round(x * 44);
+                      if (x === avg) return $.yellow(s);
+                      if (x < avg) return $.cyan(s); return $.magenta(s);
+                    },
+                  };
+                }
+
+                else {
+                  const peak = runs.reduce((t, v) => Math.max(t, v.stats.avg), 0);
+
+                  const y = runs.map(r => r.stats.avg / peak);
+                  ymin = y.reduce((t, v) => Math.min(t, v), ymin ?? Infinity);
+                  xmax = (runs.length - 1) / runs.length;
+                  map[l_benchmarks[0].alias] = { y, x: runs.map((_, o) => o / runs.length) };
+                }
+
+                if (Object.keys(map).length) (print(''), $.lineplot(map, { ymin, xmax, width: 44, height: 16, legend: 23 }).split('\n').forEach(l => print(l)));
+              }
+            }
+
+            else {
+              const map = {};
+              const every_static = l_benchmarks.every(b => b.kind === 'static');
+
+              if (every_static) {
+                const runs = l_benchmarks.map(b => b.runs[0]).filter(r => r.stats);
+
+                let ymin;
+                const peak = runs.reduce((t, v) => Math.max(t, v.stats.avg), 0);
+
+                for (const r of runs) {
+                  const y = r.stats.samples.map(s => s / peak);
+                  ymin = y.reduce((t, v) => Math.min(t, v), ymin ?? Infinity);
+                  map[r.name] = { y, x: r.stats.samples.map((_, i) => i / r.stats.samples.length) };
+                }
+
+                if (Object.keys(map).length) (print(''), $.lineplot(map, { ymin, width: 44, height: 16, legend: 23 }).split('\n').forEach(l => print(l)));
+              }
+
+              else {
+                let ymin;
+                let xmax = 0;
+                const peak = l_benchmarks.reduce((t, v) => Math.max(t, v.runs.filter(r => r.stats).reduce((t, v) => Math.max(t, v.stats.avg), 0)), 0);
+
+                for (const b of l_benchmarks) {
+                  const runs = b.runs.filter(r => r.stats);
+
+                  if (!runs.length) continue;
+                  const y = runs.map(r => r.stats.avg / peak);
+                  xmax = Math.max(xmax, (runs.length - 1) / runs.length);
+                  ymin = y.reduce((t, v) => Math.min(t, v), ymin ?? Infinity);
+                  map[b.alias] = { y, x: runs.map((_, o) => o / runs.length) };
+                }
+
+                if (Object.keys(map).length) (print(''), $.lineplot(map, { ymin, xmax, width: 44, height: 16, legend: 23 }).split('\n').forEach(l => print(l)));
+              }
+            }
           }
         }
 

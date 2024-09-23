@@ -85,7 +85,7 @@ empty function          319.36 ps/iter 325.37 ps          █ ▅          !
 
 ## powerful visualizations right in your terminal
 
-with mitata’s ascii rendering capabilities, now you can easily visualize samples in barplots, boxplots, histograms, and get clear summaries without any additional tools or dependencies.
+with mitata’s ascii rendering capabilities, now you can easily visualize samples in barplots, boxplots, lineplots, histograms, and get clear summaries without any additional tools or dependencies.
 
 ```rust
 -------------------------------------- -------------------------------
@@ -135,6 +135,25 @@ Array.from(1024)          1.98 µs/iter   2.09 µs    2.40 µs ▃█▃▃▇�
 summary
   new Array($len)
    5.42…8.33x faster than Array.from($len)
+
+                        ┌                                            ┐
+      Array.from($size)                                            ⢠⠊
+       new Array($size)                                          ⢀⠔⠁ 
+                                                                ⡠⠃   
+                                                              ⢀⠎     
+                                                             ⡔⠁      
+                                                           ⡠⠊        
+                                                         ⢀⠜          
+                                                        ⡠⠃           
+                                                       ⡔⠁            
+                                                     ⢀⠎              
+                                                    ⡠⠃               
+                                                  ⢀⠜                 
+                                                 ⢠⠊             ⣀⣀⠤⠤⠒
+                                                ⡰⠁       ⣀⡠⠤⠔⠒⠊⠉     
+                                           ⣀⣀⣀⠤⠜   ⣀⡠⠤⠒⠊⠉            
+                         ⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣔⣒⣒⣊⣉⠭⠤⠤⠤⠤⠤⠒⠊⠉               
+                        └                                            ┘
 ```
 
 ## give your own code power of mitata

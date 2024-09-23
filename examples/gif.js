@@ -1,4 +1,4 @@
-import { run, bench, boxplot, summary, compact, barplot, group } from '..';
+import { run, bench, boxplot, summary, compact, barplot, group, lineplot } from '..';
 
 function bubbleSort(arr) {
   const n = arr.length;
@@ -69,6 +69,18 @@ barplot(() => {
 group(() => {
   bench('1 + 1', () => 1 + 1);
   bench('empty function', () => {});
+});
+
+lineplot(() => {
+  bench('Array.from($size)', function* (state) {
+    const size = state.get('size');
+    yield () => Array.from({ length: size }, (_, i) => i);
+  }).range('size', 1, 1024);
+
+  bench('new Array($size)', function* (state) {
+    const size = state.get('size');
+    yield () => new Array(size);
+  }).range('size', 1, 1024);
 });
 
 await run();

@@ -68,6 +68,7 @@ export function compact(f: () => any): void;
 export function summary(f: () => any): void;
 export function boxplot(f: () => any): void;
 export function barplot(f: () => any): void;
+export function lineplot(f: () => any): void;
 export function group(f: () => Promise<any>): Promise<void>;
 export function compact(f: () => Promise<any>): Promise<void>;
 export function summary(f: () => Promise<any>): Promise<void>;
