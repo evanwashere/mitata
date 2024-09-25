@@ -247,8 +247,11 @@ export async function run(opts = {}) {
   defaults(opts);
   const t = Date.now();
   const benchmarks = [];
-  const noop = await measure(() => { });
+  let noop = await measure(() => { });
   const noop_iter = await measure(state => { for (const _ of state); });
+
+  // slow cpu or jit/runtime misbehavior
+  if (1 < noop.avg) noop = await measure(() => { });
 
   const ctx = {
     now: t,
