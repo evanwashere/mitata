@@ -46,6 +46,10 @@ await run({ filter: /new Array.*/ }) // only run benchmarks that match regex fil
 await run({ throw: true }); // will immediately throw instead of handling error quietly
 ```
 
+## automatic garbage collection
+
+On runtimes that expose gc (e.g. bun, `node --expose-gc ...`), mitata will automatically run garbage collection before each benchmark.
+
 ## universal compatibility
 
 Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/2ecd49e5836b7b124c7ea2d4836fdfd8db3c5641/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.

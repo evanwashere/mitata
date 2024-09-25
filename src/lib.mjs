@@ -28,8 +28,6 @@ export async function generator(gen, opts = {}) {
 }
 
 export const now = (() => {
-  const ceil = Math.ceil;
-
   try { // bun
     Bun.nanoseconds();
     return Bun.nanoseconds;
@@ -37,18 +35,19 @@ export const now = (() => {
 
   try { // jsc
     $.agent.monotonicNow();
-    return () => ceil(1e6 * $.agent.monotonicNow());
+    return () => 1e6 * $.agent.monotonicNow();
   } catch { }
 
   try { // 262 agent
     $262.agent.monotonicNow();
-    return () => ceil(1e6 * $262.agent.monotonicNow());
+    return () => 1e6 * $262.agent.monotonicNow();
   } catch { }
 
-  try {
-    performance.now();
-    return () => ceil(1e6 * performance.now());
-  } catch { return () => ceil(1e6 * Date.now()); }
+  try { // node/deno/... (v8 inline, anti-deopts)
+    const now = performance.now.bind(performance);
+
+    now(); return () => 1e6 * now();
+  } catch { return () => 1e6 * Date.now(); }
 })();
 
 export function kind(fn) {
@@ -123,12 +122,14 @@ export async function fn(fn, opts = {}) {
   }
 
   const loop = new AsyncFunction('$fn', '$now', `
-    let t = 0;
-    let samples = [];
+    let _ = 0; let t = 0;
+    let samples = new Array(2 ** 20);
 
-    while (true) {
-      if (samples.length >= ${opts.max_samples}) break;
-      else if (t >= ${opts.min_cpu_time} && samples.length >= ${opts.min_samples}) break;
+    ${!globalThis.gc ? '' : 'gc();'}
+    ${!globalThis.Bun?.gc ? '' : 'Bun.gc(true);'}
+
+    for (; _ < ${opts.max_samples}; _++) {
+      if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
 
       const t0 = $now();
       ${!batch ? '' : `for (let o = 0; o < ${opts.batch_samples}; o++)`} ${!async ? '' : 'await'} $fn();
@@ -137,9 +138,10 @@ export async function fn(fn, opts = {}) {
       const diff = t1 - t0;
 
       t += diff;
-      samples.push(diff ${!batch ? '' : `/ ${opts.batch_samples}`});
+      samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
     }
 
+    samples.length = _;
     samples.sort((a, b) => a - b);
     if (samples.length > ${opts.samples_threshold}) samples = samples.slice(1, -1);
 
@@ -167,7 +169,7 @@ export async function fn(fn, opts = {}) {
 export async function iter(iter, opts = {}) {
   const _ = {};
   defaults(opts);
-  let samples = [];
+  let samples = new Array(2 ** 20);
   const _i = { next() { return _.next() } };
 
   const ctx = {
@@ -193,19 +195,22 @@ export async function iter(iter, opts = {}) {
     }
 
     const loop = new GeneratorFunction('$now', '$samples', _.debug = `
-      let t = 0;
+      let _ = 0; let t = 0;
+      ${!globalThis.gc ? '' : 'gc();'}
+      ${!globalThis.Bun?.gc ? '' : 'Bun.gc(true);'}
 
-      while (true) {
-        if ($samples.length >= ${opts.max_samples}) break;
-        else if (t >= ${opts.min_cpu_time} && $samples.length >= ${opts.min_samples}) break;
+      for (; _ < ${opts.max_samples}; _++) {
+        if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
         const t0 = $now(); ${!batch ? '' : `for (let o = 0; o < ${opts.batch_samples}; o++)`} yield void 0;
 
         const t1 = $now();
         const diff = t1 - t0;
 
         t += diff;
-        $samples.push(diff ${!batch ? '' : `/ ${opts.batch_samples}`});
+        $samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
       }
+
+      $samples.length = _;
     `)(now, samples);
 
     _.batch = batch;
