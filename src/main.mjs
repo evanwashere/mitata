@@ -381,6 +381,7 @@ const formats = {
           peak: Math.max(...bins),
           outliers: stats.samples.length - 1 - poffset,
           avg: clamp(0, Math.round((stats.avg - min) / step), size - 1),
+          steps: Array.from({ length: size }, (_, o) => min + o * step),
         };
       },
 
@@ -419,9 +420,10 @@ const formats = {
       },
 
       lineplot(map, {
-        xmin = 0, ymin = 0,
-        xmax = 1, ymax = 1,
+        xmin = 0, xmax = 1,
+        ymin = 0, ymax = 1,
         width = 12, height = 12, legend = 12,
+        labels = { xmin: null, xmax: null, ymin: null, ymax: null },
       } = {}) {
         xmin ??= 0; xmax ??= 1;
         ymin ??= 0; ymax ??= 1;
@@ -456,10 +458,25 @@ const formats = {
           },
         }).split('\n');
 
+        const plabels = { 0: labels.ymax || '', [plot.length - 1]: labels.ymin || '' };
         const legends = keys.map(k => $[$.colors[keys.indexOf(k) % $.colors.length]]($.str(k, legend).padStart(legend)));
 
-        plot.forEach((l, o) => lineplot += '\n' + (legends[o] ?? ' '.repeat(legend)) + '  ' + l);
-        return lineplot += '\n' + ' '.repeat(legend) + ' ' + '└' + ' '.repeat(canvas.width) + '┘';
+        plot.forEach((l, o) => lineplot += '\n' + (legends[o] ?? ' '.repeat(legend)) + '  ' + l + (!plabels[o] ? '' : ` ${plabels[o]}`));
+
+        lineplot += '\n' + ' '.repeat(legend) + ' ' + '└' + ' '.repeat(canvas.width) + '┘';
+
+        if (labels.xmin || labels.xmax) {
+          const xmin = (labels.xmin || '').split('');
+          const xmax = (labels.xmax || '').split('');
+          const line = new Array(1 + 2 + legend + canvas.width).fill(' ');
+
+          line.splice(1 + legend, xmin.length - ('\x1b' !== xmin[0] ? 0 : 10), ...xmin);
+          line.splice(line.length - xmax.length + ('\x1b' !== xmax[0] ? 0 : 10), xmax.length - ('\x1b' !== xmax[0] ? 0 : 10), ...xmax);
+
+          lineplot += '\n' + line.join('');
+        }
+
+        return lineplot;
       },
 
       braille(width, height) {
@@ -620,7 +637,7 @@ const formats = {
         const rmax = $.time(tmax);
         const rmid = $.time((tmin + tmax) / 2);
         const gap = (size - rmin.length - rmid.length - rmax.length) / 2;
-        boxplot += ' '.repeat(1 + key) + `${$.gray(rmin)}${' '.repeat(gap | 0)} ${$.gray(rmid)} ${' '.repeat(Math.ceil(gap))}${$.gray(rmax)}`;
+        boxplot += ' '.repeat(1 + key) + `${$.cyan(rmin)}${' '.repeat(gap | 0)} ${$.gray(rmid)} ${' '.repeat(Math.ceil(gap))}${$.magenta(rmax)}`;
 
         return boxplot;
       },
@@ -722,38 +739,63 @@ const formats = {
               const runs = l_benchmarks[0].runs.filter(r => r.stats);
 
               if (runs.length) {
-                print('');
-                const map = {};
-                let xmax = null;
-                let ymin = null;
-
                 if (1 === runs.length) {
-                  const { avg, peak, bins } = $.bins(runs[0].stats, 44, .99);
+                  const { min, max, avg, peak, bins } = $.bins(runs[0].stats, 44, .99); 
 
-                  xmax = (bins.length - 1) / bins.length;
+                  print('');
+                  $.lineplot({
+                    [runs[0].name]: {
+                      y: bins,
+                      x: bins.map((_, o) => o),
 
-                  map[runs[0].name] = {
-                    y: bins.map(b => b / peak),
-                    x: bins.map((_, i) => i / bins.length),
-
-                    format: (x, y, s, tag) => {
-                      x = Math.round(x * 44);
-                      if (x === avg) return $.yellow(s);
-                      if (x < avg) return $.cyan(s); return $.magenta(s);
+                      format(x, y, s, tag) {
+                        x = Math.round(x * 44);
+                        if (x === avg) return $.yellow(s);
+                        if (x < avg) return $.cyan(s); return $.magenta(s);
+                      },
                     },
-                  };
+                  }, {
+                    xmin: 0,
+                    width: 44,
+                    ymax: peak,
+                    height: 16,
+                    legend: 23,
+                    xmax: bins.length - 1,
+                    ymin: Math.min(...bins),
+              
+                    labels: {
+                      // ymin: $.yellow(0),
+                      // ymax: $.yellow(peak),
+                      xmin: $.cyan($.time(min)),
+                      xmax: $.magenta($.time(max)),
+                    },
+                  }).split('\n').forEach(l => print(l));
                 }
 
                 else {
-                  const peak = runs.reduce((t, v) => Math.max(t, v.stats.avg), 0);
+                  const ymin = runs.reduce((t, v) => Math.min(t, v.stats.avg), Infinity);
+                  const peak = runs.reduce((t, v) => Math.max(t, v.stats.avg), -Infinity);
 
-                  const y = runs.map(r => r.stats.avg / peak);
-                  ymin = y.reduce((t, v) => Math.min(t, v), ymin ?? Infinity);
-                  xmax = (runs.length - 1) / runs.length;
-                  map[l_benchmarks[0].alias] = { y, x: runs.map((_, o) => o / runs.length) };
+                  print('');
+
+                  $.lineplot({
+                    [l_benchmarks[0].alias]: {
+                      y: runs.map(r => r.stats.avg / peak),
+                      x: runs.map((_, o) => o / (runs.length - 1)),
+                    },
+                  }, {
+                    width: 44,
+                    height: 16,
+                    legend: 23,
+
+                    labels: {
+                      // xmin: $.yellow(0),
+                      // xmax: $.yellow(1),
+                      ymin: $.cyan($.time(ymin)),
+                      ymax: $.magenta($.time(peak)),
+                    },
+                  }).split('\n').forEach(l => print(l));
                 }
-
-                if (Object.keys(map).length) (print(''), $.lineplot(map, { ymin, xmax, width: 44, height: 16, legend: 23 }).split('\n').forEach(l => print(l)));
               }
             }
 
@@ -762,36 +804,89 @@ const formats = {
               const every_static = l_benchmarks.every(b => b.kind === 'static');
 
               if (every_static) {
-                const runs = l_benchmarks.map(b => b.runs[0]).filter(r => r.stats);
+                const runs = l_benchmarks
+                .map(b => b.runs[0])
+                .filter(r => r.stats)
+                .map(r => [r, $.bins(r.stats, 21, .99)]);
 
-                let ymin;
-                const peak = runs.reduce((t, v) => Math.max(t, v.stats.avg), 0);
-
-                for (const r of runs) {
-                  const y = r.stats.samples.map(s => s / peak);
-                  ymin = y.reduce((t, v) => Math.min(t, v), ymin ?? Infinity);
-                  map[r.name] = { y, x: r.stats.samples.map((_, i) => i / r.stats.samples.length) };
+                for (const [r, bins] of runs) {
+                  map[r.name] = {
+                    x: bins.steps,
+                    y: bins.bins.map(b => b / bins.peak),
+                  };
                 }
 
-                if (Object.keys(map).length) (print(''), $.lineplot(map, { ymin, width: 44, height: 16, legend: 23 }).split('\n').forEach(l => print(l)));
+                const keys = Object.keys(map);
+
+                if (keys.length) {
+                  print('');
+                  const xmin = keys.reduce((t, k) => Math.min(t, map[k].x.reduce((t, v) => Math.min(t, v), Infinity)), Infinity);
+                  const ymin = keys.reduce((t, k) => Math.min(t, map[k].y.reduce((t, v) => Math.min(t, v), Infinity)), Infinity);
+                  const xmax = keys.reduce((t, k) => Math.max(t, map[k].x.reduce((t, v) => Math.max(t, v), -Infinity)), -Infinity);
+                  const ymax = keys.reduce((t, k) => Math.max(t, map[k].y.reduce((t, v) => Math.max(t, v), -Infinity)), -Infinity);
+
+                  $.lineplot(map, {
+                    xmin, xmax,
+                    ymin, ymax,
+                    width: 44, height: 16, legend: 23,
+
+                    labels: {
+                      // ymin: $.yellow(ymin),
+                      // ymax: $.yellow(ymax),
+                      xmin: $.cyan($.time(xmin)),
+                      xmax: $.magenta($.time(xmax)),
+                    },
+                  }).split('\n').forEach(l => print(l));
+                }
               }
 
               else {
-                let ymin;
-                let xmax = 0;
-                const peak = l_benchmarks.reduce((t, v) => Math.max(t, v.runs.filter(r => r.stats).reduce((t, v) => Math.max(t, v.stats.avg), 0)), 0);
+                const peak = l_benchmarks.reduce((t, b) => {
+                  return Math.max(t, b.runs.reduce((t, r) => r.error ? t : Math.max(t, r.stats.avg), -Infinity));
+                }, -Infinity);
+
+                const bottom = l_benchmarks.reduce((t, b) => {
+                  return Math.min(t, b.runs.reduce((t, r) => r.error ? t : Math.min(t, r.stats.avg), Infinity));
+                }, Infinity);
 
                 for (const b of l_benchmarks) {
                   const runs = b.runs.filter(r => r.stats);
 
                   if (!runs.length) continue;
-                  const y = runs.map(r => r.stats.avg / peak);
-                  xmax = Math.max(xmax, (runs.length - 1) / runs.length);
-                  ymin = y.reduce((t, v) => Math.min(t, v), ymin ?? Infinity);
-                  map[b.alias] = { y, x: runs.map((_, o) => o / runs.length) };
+
+                  if (1 === runs.length) map[b.alias] = {
+                    x: [0, 1],
+                    y: [runs[0].stats.avg / peak, runs[0].stats.avg / peak],
+                  };
+
+                  else map[b.alias] = {
+                    y: runs.map(r => r.stats.avg / peak),
+                    x: runs.map((_, o) => o / (runs.length - 1)),
+                  };
                 }
 
-                if (Object.keys(map).length) (print(''), $.lineplot(map, { ymin, xmax, width: 44, height: 16, legend: 23 }).split('\n').forEach(l => print(l)));
+                const keys = Object.keys(map);
+
+                if (keys.length) {
+                  print('');
+                  const xmin = keys.reduce((t, k) => Math.min(t, map[k].x.reduce((t, v) => Math.min(t, v), Infinity)), Infinity);
+                  const ymin = keys.reduce((t, k) => Math.min(t, map[k].y.reduce((t, v) => Math.min(t, v), Infinity)), Infinity);
+                  const xmax = keys.reduce((t, k) => Math.max(t, map[k].x.reduce((t, v) => Math.max(t, v), -Infinity)), -Infinity);
+                  const ymax = keys.reduce((t, k) => Math.max(t, map[k].y.reduce((t, v) => Math.max(t, v), -Infinity)), -Infinity);
+
+                  $.lineplot(map, {
+                    xmin, xmax,
+                    ymin, ymax,
+                    width: 44, height: 16, legend: 23,
+
+                    labels: {
+                      // xmin: $.yellow(xmin),
+                      // xmax: $.yellow(xmax),
+                      ymin: $.cyan($.time(bottom)),
+                      ymax: $.magenta($.time(peak)),
+                    },
+                  }).split('\n').forEach(l => print(l));
+                }
               }
             }
           }
