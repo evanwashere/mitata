@@ -47,6 +47,7 @@ interface k_options {
   min_samples?: number;
   max_samples?: number;
   min_cpu_time?: number;
+  batch_unroll?: number;
   batch_samples?: number;
   warmup_samples?: number;
   batch_threshold?: number;
@@ -58,6 +59,7 @@ interface k_options {
 export const k_min_samples: number;
 export const k_max_samples: number;
 export const k_min_cpu_time: number;
+export const k_batch_unroll: number;
 export const k_batch_samples: number;
 export const k_warmup_samples: number;
 export const k_batch_threshold: number;
