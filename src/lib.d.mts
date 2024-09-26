@@ -1,6 +1,8 @@
 type Gen = Generator<() => any, void, undefined> | AsyncGenerator<() => any, void, undefined>;
 
+export function gc(): void;
 export function now(): number;
+export function print(line: string): void;
 export function fn(fn: () => any, opts?: k_options): Promise<stats>;
 export function kind(fn: Function): 'fn' | 'iter' | 'yield' | undefined;
 export function generator(gen: (state: k_statefree) => Gen, opts?: k_options): Promise<stats>;
@@ -41,6 +43,7 @@ interface stats {
 }
 
 interface k_options {
+  now?: () => number;
   min_samples?: number;
   max_samples?: number;
   min_cpu_time?: number;
@@ -49,6 +52,7 @@ interface k_options {
   batch_threshold?: number;
   warmup_threshold?: number;
   samples_threshold?: number;
+  gc?: boolean | (() => void);
 }
 
 export const k_min_samples: number;

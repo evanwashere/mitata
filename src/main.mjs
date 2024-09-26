@@ -1,4 +1,4 @@
-import { kind, measure } from './lib.mjs';
+import { kind, print, measure } from './lib.mjs';
 
 let g_flags = 0;
 export { measure };
@@ -200,24 +200,45 @@ function* unroll() {
   for (const t of g_benchmarks) if (!t.t) yield t; else yield* t;
 }
 
+function version() {
+  return ({
+    bun: () => globalThis.Bun?.version,
+    deno: () => globalThis.Deno?.version?.deno,
+    node: () => globalThis.process?.versions?.node,
+    graaljs: () => globalThis.Graal?.versionGraalVM,
+    hermes: () => globalThis.HermesInternal?.getRuntimeProperties?.()?.['OSS Release Version'],
+  })[runtime()]?.() || null;
+}
+
 function runtime() {
+  if (globalThis.Graal) return 'graaljs';
+  if (globalThis.inIon && globalThis.performance?.mozMemory) return 'spidermonkey';
+  if (globalThis.$262 && globalThis.lockdown && globalThis.AsyncDisposableStack) return 'XS Moddable';
+  if (globalThis.$ && 'IsHTMLDDA' in globalThis.$ && (new Error().stack).startsWith('runtime@')) return 'jsc';
   if (globalThis.Bun) return 'bun'; if (globalThis.Deno) return 'deno'; if (globalThis.HermesInternal) return 'hermes';
-  if (globalThis.window && globalThis.navigator) return 'browser'; if (globalThis.process) return 'node'; else return 'unknown';
+  if (globalThis.window && globalThis.navigator) return 'browser'; if (globalThis.process) return 'node'; else return null;
 }
 
 async function arch() {
   try { let n; if (n = Deno?.build?.target) return n; } catch { }
   try { const os = await import('node:os'); return `${os.arch()}-${os.platform()}`; } catch { }
 
+  if (runtime() === 'spidermonkey') {
+    try {
+      const build = globalThis.getBuildConfiguration();
+      const platforms = ['osx', 'linux', 'android', 'windows'];
+      const archs = ['arm', 'x64', 'x86', 'wasi', 'arm64', 'mips32', 'mips64', 'loong64', 'riscv64'];
+
+      const arch = archs.find(k => build[k]);
+      const platform = platforms.find(k => build[k]);
+      if (arch) return !platform ? arch : `${arch}-${platform}`;
+    } catch { }
+
+    try { if (globalThis.isAvxPresent()) return 'x86_64'; } catch { }
+  }
+
   return null;
 }
-
-let print = (() => {
-  try { if (typeof print === 'function') return print; } catch { }
-  try { if (typeof console === 'object') return console.log; } catch { }
-
-  return () => { throw new Error('no print function available'); };
-})();
 
 function colors() {
   return globalThis.process?.env?.FORCE_COLOR
@@ -256,6 +277,7 @@ export async function run(opts = {}) {
   const ctx = {
     now: t,
     arch: await arch(),
+    version: version(),
     runtime: runtime(),
 
     noop: {
@@ -646,7 +668,7 @@ const formats = {
     print($.gray(`clk: ~${ctx.cpu.freq.toFixed(2)} GHz`));
 
     print($.gray(`cpu: ${ctx.cpu.name}`));
-    print($.gray(`runtime: ${ctx.runtime} (${ctx.arch})`));
+    print($.gray(`runtime: ${ctx.runtime}${!ctx.version ? '' : ` ${ctx.version}`} (${ctx.arch})`));
 
     print('');
     print(`benchmark ${' '.repeat(12)} avg (min … max) p75   p99    (min … top 1%)`);
@@ -740,7 +762,7 @@ const formats = {
 
               if (runs.length) {
                 if (1 === runs.length) {
-                  const { min, max, avg, peak, bins } = $.bins(runs[0].stats, 44, .99); 
+                  const { min, max, avg, peak, bins } = $.bins(runs[0].stats, 44, .99);
 
                   print('');
                   $.lineplot({
@@ -762,7 +784,7 @@ const formats = {
                     legend: 23,
                     xmax: bins.length - 1,
                     ymin: Math.min(...bins),
-              
+
                     labels: {
                       // ymin: $.yellow(0),
                       // ymax: $.yellow(peak),
@@ -805,9 +827,9 @@ const formats = {
 
               if (every_static) {
                 const runs = l_benchmarks
-                .map(b => b.runs[0])
-                .filter(r => r.stats)
-                .map(r => [r, $.bins(r.stats, 21, .99)]);
+                  .map(b => b.runs[0])
+                  .filter(r => r.stats)
+                  .map(r => [r, $.bins(r.stats, 21, .99)]);
 
                 for (const [r, bins] of runs) {
                   map[r.name] = {
