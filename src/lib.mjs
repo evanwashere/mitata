@@ -27,6 +27,20 @@ export async function generator(gen, opts = {}) {
   };
 }
 
+export const print = (() => {
+  if (globalThis.print) return globalThis.print;
+  if (globalThis.console?.log) return globalThis.console.log;
+  return () => { throw new Error('no print function available'); };
+})();
+
+export const gc = (() => {
+  try { return (Bun.gc(true), () => Bun.gc(true)); } catch { }
+  try { return (globalThis.gc(), () => globalThis.gc()); } catch { }
+  try { return (globalThis.$262.gc(), () => globalThis.$262.gc()); } catch { }
+
+  return () => { };
+})();
+
 export const now = (() => {
   try { // bun
     Bun.nanoseconds();
@@ -85,13 +99,15 @@ export function kind(fn) {
 export const k_min_samples = 2;
 export const k_max_samples = 1e9;
 export const k_warmup_samples = 2;
-export const k_batch_samples = 2240;
+export const k_batch_samples = 2512;
 export const k_samples_threshold = 5;
 export const k_batch_threshold = 65536;
 export const k_min_cpu_time = 642 * 1e6;
 export const k_warmup_threshold = 500_000;
 
 function defaults(opts) {
+  opts.gc ??= gc;
+  opts.now ??= now;
   opts.min_samples ??= k_min_samples;
   opts.max_samples ??= k_max_samples;
   opts.min_cpu_time ??= k_min_cpu_time;
@@ -121,12 +137,11 @@ export async function fn(fn, opts = {}) {
     }
   }
 
-  const loop = new AsyncFunction('$fn', '$now', `
+  const loop = new AsyncFunction('$fn', '$gc', '$now', `
     let _ = 0; let t = 0;
     let samples = new Array(2 ** 20);
 
-    ${!globalThis.gc ? '' : 'gc();'}
-    ${!globalThis.Bun?.gc ? '' : 'Bun.gc(true);'}
+    ${!opts.gc ? '' : `$gc();`}
 
     for (; _ < ${opts.max_samples}; _++) {
       if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
@@ -162,7 +177,7 @@ export async function fn(fn, opts = {}) {
   return {
     kind: 'fn',
     debug: loop.toString(),
-    ...(await loop(fn, now)),
+    ...(await loop(fn, opts.gc, opts.now)),
   };
 }
 
@@ -194,10 +209,10 @@ export async function iter(iter, opts = {}) {
       }
     }
 
-    const loop = new GeneratorFunction('$now', '$samples', _.debug = `
+    const loop = new GeneratorFunction('$gc', '$now', '$samples', _.debug = `
       let _ = 0; let t = 0;
-      ${!globalThis.gc ? '' : 'gc();'}
-      ${!globalThis.Bun?.gc ? '' : 'Bun.gc(true);'}
+
+      ${!opts.gc ? '' : `$gc();`}
 
       for (; _ < ${opts.max_samples}; _++) {
         if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
@@ -211,7 +226,7 @@ export async function iter(iter, opts = {}) {
       }
 
       $samples.length = _;
-    `)(now, samples);
+    `)(opts.gc, opts.now, samples);
 
     _.batch = batch;
     _.next = loop.next.bind(loop); yield void 0;

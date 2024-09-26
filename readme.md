@@ -52,7 +52,7 @@ On runtimes that expose gc (e.g. bun, `node --expose-gc ...`), mitata will autom
 
 ## universal compatibility
 
-Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/2ecd49e5836b7b124c7ea2d4836fdfd8db3c5641/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
+Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
 
 ## argumentizing your benchmarks has never been so easy
 
@@ -188,6 +188,87 @@ const b = new B('new Array($x)', state => {
 
 const trial = await b.run();
 ```
+
+## accuracy down to picoseconds
+
+mitata pushes the limits of javascript with jit-generated zero-overhead measurement loops to provide high-resolution timings. This allows providing features like cpu clock frequency and dead code detection without requiring access outside the js sandbox.
+
+```rust
+clk: ~3.04 GHz
+cpu: Apple M2 Pro
+runtime: node (arm64-darwin)
+
+benchmark              avg (min … max) p75   p99    (min … top 1%)
+-------------------------------------- -------------------------------
+noop                    329.34 ps/iter 334.82 ps        ▇  █           !
+                (279.02 ps … 32.40 ns) 390.63 ps ▁▁▁▁▁▁▁█▁▁█▁▁▁▁▁▁▁▁▁▁
+
+! = benchmark was likely optimized out (dead code elimination)
+
+// vs other libraries
+
+16041.00 ns/iter - node:perf_hooks (performance.timerify)
+
+5.30 ns/iter - https://npmjs.com/benchmark
+noop x 188,640,251 ops/sec ±5.71% (73 runs sampled)
+
+36.62 ns/iter - https://npmjs.com/tinybench
+┌─────────┬───────────┬──────────────┬───────────────────┬──────────┬──────────┐
+│ (index) │ Task Name │ ops/sec      │ Average Time (ns) │ Margin   │ Samples  │
+├─────────┼───────────┼──────────────┼───────────────────┼──────────┼──────────┤
+│ 0       │ 'noop'    │ '27,308,739' │ 36.61831406333669 │ '±0.14%' │ 13654370 │
+└─────────┴───────────┴──────────────┴───────────────────┴──────────┴──────────┘
+
+156.5685 ns/iter - https://npmjs.com/cronometro
+╔══════════════╤═════════╤═══════════════════╤═══════════╗
+║ Slower tests │ Samples │            Result │ Tolerance ║
+╟──────────────┼─────────┼───────────────────┼───────────╢
+║ Fastest test │ Samples │            Result │ Tolerance ║
+╟──────────────┼─────────┼───────────────────┼───────────╢
+║ noop         │   10000 │ 6386980.78 op/sec │  ± 1.85 % ║
+╚══════════════╧═════════╧═══════════════════╧═══════════╝
+```
+
+<details>
+<summary>same test with v8 jit compiler disabled:</summary>
+
+```rust
+clk: ~0.06 GHz
+cpu: Apple M2 Pro
+runtime: node (arm64-darwin)
+
+benchmark              avg (min … max) p75   p99    (min … top 1%)
+-------------------------------------- -------------------------------
+noop                     16.35 ns/iter  16.35 ns   █▂                  !
+                 (16.00 ns … 20.78 ns)  18.14 ns ▁▅██▄▃▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+
+! = benchmark was likely optimized out (dead code elimination)
+
+// vs other libraries
+
+17500.00 ns/iter - node:perf_hooks (performance.timerify)
+
+23.28 ns/iter - https://npmjs.com/benchmark
+noop x 42,952,144 ops/sec ±0.87% (98 runs sampled)
+
+184.92 ns/iter - https://npmjs.com/tinybench
+┌─────────┬───────────┬─────────────┬────────────────────┬──────────┬─────────┐
+│ (index) │ Task Name │ ops/sec     │ Average Time (ns)  │ Margin   │ Samples │
+├─────────┼───────────┼─────────────┼────────────────────┼──────────┼─────────┤
+│ 0       │ 'noop'    │ '5,407,742' │ 184.92003948393378 │ '±0.02%' │ 2703872 │
+└─────────┴───────────┴─────────────┴────────────────────┴──────────┴─────────┘
+
+659.9353333333333 ns/iter - https://npmjs.com/cronometro
+╔══════════════╤═════════╤═══════════════════╤═══════════╗
+║ Slower tests │ Samples │            Result │ Tolerance ║
+╟──────────────┼─────────┼───────────────────┼───────────╢
+║ Fastest test │ Samples │            Result │ Tolerance ║
+╟──────────────┼─────────┼───────────────────┼───────────╢
+║ noop         │    1500 │ 1515299.98 op/sec │  ± 0.72 % ║
+╚══════════════╧═════════╧═══════════════════╧═══════════╝
+```
+</details>
+
 
 ## License
 
