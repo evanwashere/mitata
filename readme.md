@@ -14,6 +14,12 @@
 
 `npm install mitata`
 
+## Recommendations
+
+- use dedicated hardware for running benchmarks
+- run with garbage collection enabled (e.g. `node --expose-gc ...`)
+- make sure your runtime has high-resolution timers and other relevant options/permissions enabled
+
 ## Quick Start
 
 ```js
@@ -194,14 +200,14 @@ const trial = await b.run();
 mitata pushes the limits of javascript with jit-generated zero-overhead measurement loops to provide high-resolution timings. This allows providing features like cpu clock frequency and dead code detection without requiring access outside the js sandbox.
 
 ```rust
-clk: ~3.04 GHz
+clk: ~3.13 GHz
 cpu: Apple M2 Pro
-runtime: node (arm64-darwin)
+runtime: node 22.8.0 (arm64-darwin)
 
 benchmark              avg (min … max) p75   p99    (min … top 1%)
 -------------------------------------- -------------------------------
-noop                    329.34 ps/iter 334.82 ps        ▇  █           !
-                (279.02 ps … 32.40 ns) 390.63 ps ▁▁▁▁▁▁▁█▁▁█▁▁▁▁▁▁▁▁▁▁
+noop                     93.09 ps/iter  91.55 ps                █      !
+                 (61.04 ps … 20.30 ns) 101.81 ps ▁▁▁▁▁▁▁▁▁▁▂▁▁▁▁█▁▁▁▁▂
 
 ! = benchmark was likely optimized out (dead code elimination)
 
@@ -235,12 +241,12 @@ noop x 188,640,251 ops/sec ±5.71% (73 runs sampled)
 ```rust
 clk: ~0.06 GHz
 cpu: Apple M2 Pro
-runtime: node (arm64-darwin)
+runtime: node 22.8.0 (arm64-darwin)
 
 benchmark              avg (min … max) p75   p99    (min … top 1%)
 -------------------------------------- -------------------------------
-noop                     16.35 ns/iter  16.35 ns   █▂                  !
-                 (16.00 ns … 20.78 ns)  18.14 ns ▁▅██▄▃▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+noop                     14.69 ns/iter  15.09 ns      ▃▅▇▇▇█▅▄▂        !
+                 (13.33 ns … 19.69 ns)  16.24 ns ▁▄▅▇███████████▆▅▄▃▂▂
 
 ! = benchmark was likely optimized out (dead code elimination)
 

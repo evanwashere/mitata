@@ -38,7 +38,7 @@ export const gc = (() => {
   try { return (globalThis.gc(), () => globalThis.gc()); } catch { }
   try { return (globalThis.$262.gc(), () => globalThis.$262.gc()); } catch { }
 
-  return () => { };
+  return () => new Uint8Array(2 ** 30);
 })();
 
 export const now = (() => {
@@ -96,11 +96,12 @@ export function kind(fn) {
   ) return 'iter';
 }
 
-export const k_min_samples = 2;
+export const k_min_samples = 12;
+export const k_batch_unroll = 4;
 export const k_max_samples = 1e9;
 export const k_warmup_samples = 2;
-export const k_batch_samples = 2512;
-export const k_samples_threshold = 5;
+export const k_batch_samples = 4096;
+export const k_samples_threshold = 12;
 export const k_batch_threshold = 65536;
 export const k_min_cpu_time = 642 * 1e6;
 export const k_warmup_threshold = 500_000;
@@ -111,6 +112,7 @@ function defaults(opts) {
   opts.min_samples ??= k_min_samples;
   opts.max_samples ??= k_max_samples;
   opts.min_cpu_time ??= k_min_cpu_time;
+  opts.batch_unroll ??= k_batch_unroll;
   opts.batch_samples ??= k_batch_samples;
   opts.warmup_samples ??= k_warmup_samples;
   opts.batch_threshold ??= k_batch_threshold;
@@ -147,7 +149,12 @@ export async function fn(fn, opts = {}) {
       if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
 
       const t0 = $now();
-      ${!batch ? '' : `for (let o = 0; o < ${opts.batch_samples}; o++)`} ${!async ? '' : 'await'} $fn();
+
+      ${!batch ? `${!async ? '' : 'await'} $fn();` : `
+        for (let o = 0; o < ${(opts.batch_samples / opts.batch_unroll) | 0}; o++) {
+          ${new Array(opts.batch_unroll).fill(`${!async ? '' : 'await'} $fn();`).join(' ')}
+        }
+      `}
 
       const t1 = $now();
       const diff = t1 - t0;
@@ -158,7 +165,7 @@ export async function fn(fn, opts = {}) {
 
     samples.length = _;
     samples.sort((a, b) => a - b);
-    if (samples.length > ${opts.samples_threshold}) samples = samples.slice(1, -1);
+    if (samples.length > ${opts.samples_threshold}) samples = samples.slice(2, -2);
 
     return {
       samples,
@@ -216,7 +223,13 @@ export async function iter(iter, opts = {}) {
 
       for (; _ < ${opts.max_samples}; _++) {
         if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
-        const t0 = $now(); ${!batch ? '' : `for (let o = 0; o < ${opts.batch_samples}; o++)`} yield void 0;
+        const t0 = $now();
+        
+        ${!batch ? 'yield void 0;' : `
+          for (let o = 0; o < ${(opts.batch_samples / opts.batch_unroll) | 0}; o++) {
+            ${new Array(opts.batch_unroll).fill('yield void 0;').join(' ')}
+          }
+        `}
 
         const t1 = $now();
         const diff = t1 - t0;
@@ -236,7 +249,7 @@ export async function iter(iter, opts = {}) {
   if (samples.length < opts.min_samples) throw new TypeError(`expected at least ${opts.min_samples} samples from iterator`);
 
   samples.sort((a, b) => a - b);
-  if (samples.length > opts.samples_threshold) samples = samples.slice(1, -1);
+  if (samples.length > opts.samples_threshold) samples = samples.slice(2, -2);
 
   return {
     samples,

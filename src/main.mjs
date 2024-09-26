@@ -268,11 +268,9 @@ export async function run(opts = {}) {
   defaults(opts);
   const t = Date.now();
   const benchmarks = [];
-  let noop = await measure(() => { });
+  const noop = await measure(() => { });
+  const _cpu = await measure(() => { }, { batch_unroll: 1 });
   const noop_iter = await measure(state => { for (const _ of state); });
-
-  // slow cpu or jit/runtime misbehavior
-  if (1 < noop.avg) noop = await measure(() => { });
 
   const ctx = {
     now: t,
@@ -287,7 +285,7 @@ export async function run(opts = {}) {
 
     cpu: {
       name: await cpu(),
-      freq: 1 / noop.avg,
+      freq: 1 / _cpu.avg,
     },
   };
 
@@ -683,7 +681,7 @@ const formats = {
         const compact = b.flags & flags.compact;
         const noop = 'iter' !== r.stats.kind ? ctx.noop.fn : ctx.noop.iter;
 
-        const optimized_out = r.stats.avg < (1.21 * noop.avg);
+        const optimized_out = r.stats.avg < (1.42 * noop.avg);
         optimized_out_warning = optimized_out_warning || optimized_out;
 
         if (compact) {

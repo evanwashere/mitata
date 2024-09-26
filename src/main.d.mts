@@ -45,14 +45,17 @@ interface stats {
 }
 
 interface k_options {
+  now?: () => number;
   min_samples?: number;
   max_samples?: number;
   min_cpu_time?: number;
+  batch_unroll?: number;
   batch_samples?: number;
   warmup_samples?: number;
   batch_threshold?: number;
   warmup_threshold?: number;
   samples_threshold?: number;
+  gc?: boolean | (() => void);
 }
 
 // ---

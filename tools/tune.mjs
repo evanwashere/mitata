@@ -1,7 +1,12 @@
 import { print } from '../src/lib.mjs';
 import { run, bench, measure } from '../src/main.mjs';
 
-bench('test', () => +new Array(10));
+bench('noop', () => { });
+
+bench('test', function* (state) {
+  const size = state.get(0);
+  yield () => size;
+}).args([0]);
 
 // cpu info
 await run();
