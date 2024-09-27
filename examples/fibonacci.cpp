@@ -1,4 +1,5 @@
 #include "../src/mitata.hpp"
+// clang++ -lc -std=c++17 examples/fibonacci.cpp
 
 int fibonacci(int n) {
   if (n <= 1) return n;
@@ -14,15 +15,20 @@ int main() {
     fibonacci(20);
   });
 
-  runner.group([&]() {
+  runner.summary([&]() {
     runner.bench("noop2", []() { })->compact(false);
     runner.bench("fibonacci2", []() { fibonacci(20); });
   });
 
-  runner.summary([&]() {
+  runner.barplot([&]() {
     runner.bench("noop3", []() { })->compact(false);
     runner.bench("fibonacci3", []() { fibonacci(20); })->baseline(false);
     runner.bench("fibonacci4", []() { fibonacci(20); })->baseline(true);
+  });
+
+  runner.boxplot([&]() {
+    runner.bench("noop5", []() { })->compact(true);
+    runner.bench("fibonacci5", []() { fibonacci(20); });
   });
 
   runner.bench("noop4", []() { })->compact(true);
