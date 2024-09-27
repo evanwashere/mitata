@@ -22,15 +22,23 @@
 
 ## Quick Start
 
+<table>
+<tr>
+<th>javascript</th>
+<th>c++ single header</th>
+</tr>
+<tr>
+<td>
+
 ```js
 import { run, bench, boxplot } from 'mitata';
 
-function fibonacciRecursive(n) {
+function fibonacci(n) {
   if (n <= 1) return n;
-  return fibonacciRecursive(n - 1) + fibonacciRecursive(n - 2);
+  return fibonacci(n - 1) + fibonacci(n - 2);
 }
 
-bench('fibonacci(40)', () => fibonacciRecursive(40));
+bench('fibonacci(40)', () => fibonacci(40));
 
 boxplot(() => {
   bench('new Array($size)', function* (state) {
@@ -41,6 +49,37 @@ boxplot(() => {
 
 await run();
 ```
+  
+</td>
+<td>
+
+```cpp
+#include "src/mitata.hpp"
+
+int fibonacci(int n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+int main() {
+  mitata::runner runner;
+  runner.bench("noop", []() { });
+
+  runner.summary([&]() {
+    runner.bench("empty fn", []() { });
+    runner.bench("fibonacci", []() { fibonacci(20); });
+  });
+
+  auto stats = runner.run();
+}
+```
+
+</td>
+</tr>
+</table>
+
+
+
 
 ## configure your experience
 
@@ -50,6 +89,9 @@ import { run } from 'mitata';
 await run({ format: 'mitata', colors: false }); // default format
 await run({ filter: /new Array.*/ }) // only run benchmarks that match regex filter
 await run({ throw: true }); // will immediately throw instead of handling error quietly
+
+// c++
+auto stats = runner.run({ .colors = true, .format = "mitata", .filter = std::regex(".*") });
 ```
 
 ## automatic garbage collection
@@ -169,6 +211,14 @@ summary
 ## give your own code power of mitata
 
 In case you don’t need all the fluff that comes with mitata or just need raw results, mitata exports its fundamental building blocks to allow you to easily build your own tooling and wrappers without losing any core benefits of using mitata.
+
+```cpp
+#include "src/mitata.hpp"
+
+int main() {
+  auto stats = mitata::lib::fn([]() { /***/ })
+}
+```
 
 ```js
 import { B, measure } from 'mitata';
