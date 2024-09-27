@@ -91,7 +91,7 @@ await run({ filter: /new Array.*/ }) // only run benchmarks that match regex fil
 await run({ throw: true }); // will immediately throw instead of handling error quietly
 
 // c++
-auto stats = runner.run({ .colors = true, .format = "mitata", .filter = std::regex(".*") });
+auto stats = runner.run({ .colors = true, .format = "json", .filter = std::regex(".*") });
 ```
 
 ## automatic garbage collection

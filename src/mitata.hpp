@@ -224,6 +224,34 @@ namespace mitata {
       };
     }
 
+    inline const std::string barplot(std::map<std::string, f64> map, u64 legend = 8, u64 width = 14, bool colors = true) {
+      std::string barplot = "";
+      f64 min = std::min_element(map.begin(), map.end(), [](const auto &a, const auto &b) { return a.second < b.second; })->second;
+      f64 max = std::max_element(map.begin(), map.end(), [](const auto &a, const auto &b) { return a.second < b.second; })->second;
+
+      auto steps = width - 11;
+      f64 step = (max - min) / steps;
+
+      barplot += std::string(1 + legend, ' ');
+      barplot += "┌" + std::string(width, ' ') + "┐" + "\n";
+
+      for (const auto &[name, value] : map) {
+        u64 offset = 1 + std::round((value - min) / step);
+        barplot += fmt::pad_s(fmt::str(name, legend), legend) + " ┤";
+
+        if (colors) barplot += fmt::colors::gray;
+        for (auto o = 0; o < offset; o++) barplot += "■"; if (colors) barplot += fmt::colors::reset;
+
+        barplot += " "; if (colors) barplot += fmt::colors::yellow;
+        barplot += fmt::time(value); if (colors) barplot += fmt::colors::reset; barplot += " \n";
+      }
+
+      barplot += std::string(1 + legend, ' ');
+      barplot += "└" + std::string(width, ' ') + "┘" + "\n";
+
+      return barplot;
+    }
+
     inline const std::vector<std::string> histogram(k_bins bins, u64 height = 2, bool colors = true) {
       auto histogram = std::vector<std::string>(height);
       auto clamp = [](auto m, auto v, auto x) { return v < m ? m : v > x ? x : v; };
@@ -264,6 +292,109 @@ namespace mitata {
       }
 
       return (std::reverse(histogram.begin(), histogram.end()), histogram);
+    }
+
+    inline const std::string boxplot(std::map<std::string, lib::k_stats> map, u64 legend = 8, u64 width = 14, bool colors = true) {
+      std::string boxplot = "";
+      f64 tmin = std::min_element(map.begin(), map.end(), [](const auto &a, const auto &b) { return a.second.min < b.second.min; })->second.min;
+      f64 tmax = std::max_element(map.begin(), map.end(), [](const auto &a, const auto &b) { return a.second.p99 < b.second.p99; })->second.p99;
+
+      auto steps = 2 + width;
+      auto step = (tmax - tmin) / (steps - 1);
+
+      boxplot += std::string(1 + legend, ' ');
+      boxplot += "┌" + std::string(width, ' ') + "┐" + "\n";
+
+      for (const auto &[name, stats] : map) {
+        auto min = stats.min;
+        auto max = stats.p99;
+        auto avg = stats.avg;
+        auto p25 = stats.p25;
+        auto p75 = stats.p75;
+
+        auto min_offset = std::round((min - tmin) / step);
+        auto max_offset = std::round((max - tmin) / step);
+        auto avg_offset = std::round((avg - tmin) / step);
+        auto p25_offset = std::round((p25 - tmin) / step);
+        auto p75_offset = std::round((p75 - tmin) / step);
+
+        auto u = std::vector<std::string>(1 + max_offset, " ");
+        auto m = std::vector<std::string>(1 + max_offset, " ");
+        auto l = std::vector<std::string>(1 + max_offset, " ");
+
+        if (min_offset < p25_offset) {
+          u[min_offset] = (!colors ? "╷" : (std::string(fmt::colors::cyan) + "╷" + fmt::colors::reset));
+          m[min_offset] = (!colors ? "├" : (std::string(fmt::colors::cyan) + "├" + fmt::colors::reset));
+          l[min_offset] = (!colors ? "╵" : (std::string(fmt::colors::cyan) + "╵" + fmt::colors::reset));
+          for (auto o = 1 + min_offset; o < p25_offset; o++) m[o] = (!colors ? "─" : (std::string(fmt::colors::cyan) + "─" + fmt::colors::reset));
+        }
+
+        if (p25_offset < avg_offset) {
+          u[p25_offset] = (!colors ? "┌" : (std::string(fmt::colors::cyan) + "┌" + fmt::colors::reset));
+          l[p25_offset] = (!colors ? "└" : (std::string(fmt::colors::cyan) + "└" + fmt::colors::reset));
+
+          auto ms = min_offset == p25_offset ? "│" : "┤";
+          m[p25_offset] = (!colors ? ms : (std::string(fmt::colors::cyan) + ms + fmt::colors::reset));
+          for (auto o = 1 + p25_offset; o < avg_offset; o++) u[o] = l[o] = (!colors ? "─" : (std::string(fmt::colors::cyan) + "─" + fmt::colors::reset));
+        }
+
+        u[avg_offset] = (!colors ? "┬" : (std::string(fmt::colors::yellow) + "┬" + fmt::colors::reset));
+        m[avg_offset] = (!colors ? "│" : (std::string(fmt::colors::yellow) + "│" + fmt::colors::reset));
+        l[avg_offset] = (!colors ? "┴" : (std::string(fmt::colors::yellow) + "┴" + fmt::colors::reset));
+
+        if (p75_offset > avg_offset) {
+          u[p75_offset] = (!colors ? "┐" : (std::string(fmt::colors::magenta) + "┐" + fmt::colors::reset));
+          l[p75_offset] = (!colors ? "┘" : (std::string(fmt::colors::magenta) + "┘" + fmt::colors::reset));
+
+          auto ms = max_offset == p75_offset ? "│" : "├";
+          m[p75_offset] = (!colors ? ms : (std::string(fmt::colors::magenta) + ms + fmt::colors::reset));
+          for (auto o = 1 + avg_offset; o < p75_offset; o++) u[o] = l[o] = (!colors ? "─" : (std::string(fmt::colors::magenta) + "─" + fmt::colors::reset));
+        }
+
+        if (max_offset > p75_offset) {
+          u[max_offset] = (!colors ? "╷" : (std::string(fmt::colors::magenta) + "╷" + fmt::colors::reset));
+          m[max_offset] = (!colors ? "┤" : (std::string(fmt::colors::magenta) + "┤" + fmt::colors::reset));
+          l[max_offset] = (!colors ? "╵" : (std::string(fmt::colors::magenta) + "╵" + fmt::colors::reset));
+          for (auto o = 1 + std::max(avg_offset, p75_offset); o < max_offset; o++) m[o] = (!colors ? "─" : (std::string(fmt::colors::magenta) + "─" + fmt::colors::reset));
+        }
+
+        boxplot += std::string(1 + legend, ' ');
+        for (auto s : u) boxplot += s; boxplot += "\n";
+        boxplot += fmt::pad_s(fmt::str(name, legend), legend);
+        boxplot += " "; for (auto s : m) boxplot += s; boxplot += "\n";
+        boxplot += std::string(1 + legend, ' '); for (auto s : l) boxplot += s; boxplot += "\n";
+      }
+
+      boxplot += std::string(1 + legend, ' ');
+      boxplot += "└" + std::string(width, ' ') + "┘" + "\n";
+
+      auto min = fmt::time(tmin);
+      auto max = fmt::time(tmax);
+      auto mid = fmt::time((tmin + tmax) / 2);
+
+      auto u_fix = 0
+        + (min.find("µ") != std::string::npos ? 1 : 0)
+        + (mid.find("µ") != std::string::npos ? 1 : 0)
+        + (max.find("µ") != std::string::npos ? 1 : 0);
+
+      f64 gap = (f64)(width + u_fix - min.length() - mid.length() - max.length()) / 2;
+
+      boxplot += std::string(1 + legend, ' ');
+
+      if (colors) boxplot += fmt::colors::cyan;
+      boxplot += min; if (colors) boxplot += fmt::colors::reset;
+
+      boxplot += std::string(std::floor(gap), ' ') + ' ';
+
+      if (colors) boxplot += fmt::colors::gray;
+      boxplot += mid; if (colors) boxplot += fmt::colors::reset;
+
+      boxplot += ' ' + std::string(std::ceil(gap), ' ');
+
+      if (colors) boxplot += fmt::colors::magenta;
+      boxplot += max; if (colors) boxplot += fmt::colors::reset;
+
+      return boxplot + "\n";
     }
   }
 
@@ -306,15 +437,15 @@ namespace mitata {
         fn(); collections.push_back({ .type = 'd' });
       }
 
-      // void boxplot(std::function<void()> fn) {
-      //   collections.push_back({ .type = 'x' });
-      //   fn(); collections.push_back({ .type = 'd' });
-      // }
+      void boxplot(std::function<void()> fn) {
+        collections.push_back({ .type = 'x' });
+        fn(); collections.push_back({ .type = 'd' });
+      }
 
-      // void barplot(std::function<void()> fn) {
-      //   collections.push_back({ .type = 'b' });
-      //   fn(); collections.push_back({ .type = 'd' });
-      // }
+      void barplot(std::function<void()> fn) {
+        collections.push_back({ .type = 'b' });
+        fn(); collections.push_back({ .type = 'd' });
+      }
 
       void summary(std::function<void()> fn) {
         collections.push_back({ .type = 's' });
@@ -399,11 +530,14 @@ namespace mitata {
         }
 
         if ("mitata" == opts.format) {
-          std::cout << fmt::colors::gray;
+          if (opts.colors) std::cout << fmt::colors::gray;
+
           std::cout << "runtime: c++" << std::endl;
           std::cout << "compiler: " << ctx::compiler() << std::endl;
 
-          std::cout << fmt::colors::reset << std::endl;
+          if (opts.colors) std::cout << fmt::colors::reset;
+
+          std::cout << std::endl;
           std::cout << fmt::pad_e("benchmark", 9 + 14);
           std::cout << "avg (min … max) p75   p99    (min … top 1%)" << std::endl;
 
@@ -496,6 +630,30 @@ namespace mitata {
               std::cout << std::endl;
             }
 
+            if ('b' == collection.type) {
+              if (1 >= trials.size()) continue;
+
+              std::cout << std::endl;
+              auto map = std::map<std::string, f64>();
+
+              for (const auto &trial : trials) {
+                map[trial.first] = trial.second.second.avg;
+              }
+
+              std::cout << fmt::barplot(map, 23, 44, opts.colors);
+            }
+
+            if ('x' == collection.type) {
+              std::cout << std::endl;
+              auto map = std::map<std::string, lib::k_stats>();
+
+              for (const auto &trial : trials) {
+                map[trial.first] = trial.second.second;
+              }
+
+              std::cout << fmt::boxplot(map, 23, 44, opts.colors);
+            }
+
             if ('s' == collection.type) {
               if (1 >= trials.size()) continue;
 
@@ -509,8 +667,11 @@ namespace mitata {
 
               std::cout << std::endl;
               if (baseline == trials.end()) baseline = trials.begin();
-              std::cout << fmt::colors::bold << "summary" << fmt::colors::reset << std::endl;
-              std::cout << "  " << fmt::colors::bold << fmt::colors::cyan << baseline->first << fmt::colors::reset << std::endl;
+              if (!opts.colors) std::cout << "summary" << std::endl;
+              else std::cout << fmt::colors::bold << "summary" << fmt::colors::reset << std::endl;
+
+              if (!opts.colors) std::cout << "  " << baseline->first << std::endl;
+              else std::cout << "  " << fmt::colors::bold << fmt::colors::cyan << baseline->first << fmt::colors::reset << std::endl;
 
               for (const auto trial : trials) {
                 if (trial.first == baseline->first) continue;
@@ -540,7 +701,7 @@ namespace mitata {
           }
 
           if (optimized_out_warning) {
-            if (!opts.colors) std::cout << std::endl << "! = benchmark was likely optimized out (dead code elimination)";
+            if (!opts.colors) std::cout << std::endl << "! = benchmark was likely optimized out (dead code elimination)" << std::endl;
             else std::cout << std::endl << fmt::colors::red << "!" << fmt::colors::reset << " " << fmt::colors::gray << "=" << fmt::colors::reset << " benchmark was likely optimized out " << fmt::colors::gray << "(dead code elimination)" << fmt::colors::reset << std::endl;
           }
         }
