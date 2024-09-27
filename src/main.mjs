@@ -685,7 +685,7 @@ const formats = {
         optimized_out_warning = optimized_out_warning || optimized_out;
 
         if (compact) {
-          print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9) + '  ' + $.time(r.stats.p99).padStart(9))} ${optimized_out ? $.red('!') : $.histogram(r.stats, 10, 1)}`);
+          print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9) + ' ' + $.time(r.stats.p99).padStart(9))} ${$.histogram(r.stats, 11, 1)}${!optimized_out ? '' : $.red(' !')}`);
         }
 
         else {
