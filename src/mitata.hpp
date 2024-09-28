@@ -207,7 +207,8 @@ namespace mitata {
       auto clamp = [](auto m, auto v, auto x) { return v < m ? m : v > x ? x : v; };
 
       f64 min = stats.min;
-      f64 max = stats.samples[poffset];
+      f64 max = .0 != stats.samples[poffset] ? stats.samples[poffset] : (.0 == stats.max ? 1.0 : stats.max);
+
       f64 step = (max - min) / (size - 1);
       auto bins = std::vector<u64>(size, 0);
       auto steps = std::vector<f64>(size, 0);
@@ -297,7 +298,9 @@ namespace mitata {
     inline const std::string boxplot(std::map<std::string, lib::k_stats> map, u64 legend = 8, u64 width = 14, bool colors = true) {
       std::string boxplot = "";
       f64 tmin = std::min_element(map.begin(), map.end(), [](const auto &a, const auto &b) { return a.second.min < b.second.min; })->second.min;
-      f64 tmax = std::max_element(map.begin(), map.end(), [](const auto &a, const auto &b) { return a.second.p99 < b.second.p99; })->second.p99;
+      auto tmax_stats = std::max_element(map.begin(), map.end(), [](const auto &a, const auto &b) { return (.0 != a.second.p99 ? a.second.p99 : (.0 == a.second.max ? 1.0 : a.second.max)) < (.0 != b.second.p99 ? b.second.p99 : (.0 == b.second.max ? 1.0 : b.second.max)); })->second;
+
+      f64 tmax = .0 != tmax_stats.p99 ? tmax_stats.p99 : (.0 == tmax_stats.max ? 1.0 : tmax_stats.max);
 
       auto steps = 2 + width;
       auto step = (tmax - tmin) / (steps - 1);
@@ -306,17 +309,17 @@ namespace mitata {
       boxplot += "┌" + std::string(width, ' ') + "┐" + "\n";
 
       for (const auto &[name, stats] : map) {
-        auto min = stats.min;
-        auto max = stats.p99;
-        auto avg = stats.avg;
-        auto p25 = stats.p25;
-        auto p75 = stats.p75;
+        f64 min = stats.min;
+        f64 avg = stats.avg;
+        f64 p25 = stats.p25;
+        f64 p75 = stats.p75;
+        f64 max = .0 != stats.p99 ? stats.p99 : (.0 == stats.max ? 1.0 : stats.max);
 
-        auto min_offset = std::round((min - tmin) / step);
-        auto max_offset = std::round((max - tmin) / step);
-        auto avg_offset = std::round((avg - tmin) / step);
-        auto p25_offset = std::round((p25 - tmin) / step);
-        auto p75_offset = std::round((p75 - tmin) / step);
+        u64 min_offset = std::round((min - tmin) / step);
+        u64 max_offset = std::round((max - tmin) / step);
+        u64 avg_offset = std::round((avg - tmin) / step);
+        u64 p25_offset = std::round((p25 - tmin) / step);
+        u64 p75_offset = std::round((p75 - tmin) / step);
 
         auto u = std::vector<std::string>(1 + max_offset, " ");
         auto m = std::vector<std::string>(1 + max_offset, " ");
@@ -472,6 +475,8 @@ namespace mitata {
         if ("json" == opts.format) {
           std::cout << "{" << std::endl;
           std::cout << "\"context\": {" << std::endl;
+          std::cout << "\"runtime\": \"c++\"," << std::endl;
+          std::cout << "\"compiler\": \"" << ctx::compiler() << "\"," << std::endl;
 
           std::cout << "\"noop\": {" << std::endl;
           std::cout << "\"min\": " << noop.min << "," << std::endl;

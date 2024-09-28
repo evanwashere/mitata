@@ -36,9 +36,9 @@ export const print = (() => {
 export const gc = (() => {
   try { return (Bun.gc(true), () => Bun.gc(true)); } catch { }
   try { return (globalThis.gc(), () => globalThis.gc()); } catch { }
+  try { return (globalThis.std.gc(), () => globalThis.std.gc()); } catch { }
   try { return (globalThis.$262.gc(), () => globalThis.$262.gc()); } catch { }
-
-  return () => new Uint8Array(2 ** 30);
+  if (globalThis.Graal) return () => new Uint8Array(2 ** 29); return () => new Uint8Array(2 ** 30);
 })();
 
 export const now = (() => {

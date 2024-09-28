@@ -1,15 +1,21 @@
-import { print } from '../src/lib.mjs';
-import { run, bench, measure } from '../src/main.mjs';
+import { now, print } from '../src/lib.mjs';
+import { run, bench, boxplot, barplot, lineplot, measure } from '../src/main.mjs';
 
-bench('noop', () => { });
+boxplot(() => {
+// barplot(() => {
+// lineplot(() => {
+  bench('noop', () => { });
 
-bench('test', function* (state) {
-  const size = state.get(0);
-  yield () => size;
-}).args([0]);
+  bench('test', function* (state) {
+    const size = state.get(0);
+    yield () => new Array(size);
+  }).args([0]);
+});
 
 // cpu info
 await run();
+
+// while (true) print(`${now() / 1e6}`);
 
 while (true) {
   const s = await measure(() => { });
