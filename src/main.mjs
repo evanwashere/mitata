@@ -202,19 +202,25 @@ function* unroll() {
 
 function version() {
   return ({
+    v8: () => globalThis.version?.(),
     bun: () => globalThis.Bun?.version,
     deno: () => globalThis.Deno?.version?.deno,
     node: () => globalThis.process?.versions?.node,
     graaljs: () => globalThis.Graal?.versionGraalVM,
+    'quickjs-ng': () => globalThis.navigator?.userAgent?.split?.('/')[1],
     hermes: () => globalThis.HermesInternal?.getRuntimeProperties?.()?.['OSS Release Version'],
   })[runtime()]?.() || null;
 }
 
 function runtime() {
+  if (globalThis.d8) return 'v8';
   if (globalThis.Graal) return 'graaljs';
   if (globalThis.inIon && globalThis.performance?.mozMemory) return 'spidermonkey';
+  if (globalThis.navigator?.userAgent?.toLowerCase?.()?.includes?.('quickjs-ng')) return 'quickjs-ng';
   if (globalThis.$262 && globalThis.lockdown && globalThis.AsyncDisposableStack) return 'XS Moddable';
   if (globalThis.$ && 'IsHTMLDDA' in globalThis.$ && (new Error().stack).startsWith('runtime@')) return 'jsc';
+
+  if (globalThis.os && globalThis.std) return 'quickjs';
   if (globalThis.Bun) return 'bun'; if (globalThis.Deno) return 'deno'; if (globalThis.HermesInternal) return 'hermes';
   if (globalThis.window && globalThis.navigator) return 'browser'; if (globalThis.process) return 'node'; else return null;
 }
@@ -387,21 +393,21 @@ const formats = {
         const poffset = (percentile * (stats.samples.length - 1)) | 0;
 
         const min = stats.min;
-        const max = stats.samples[poffset];
+        const max = stats.samples[poffset] || stats.max || 1;
+
         const bins = new Array(size).fill(0);
+        const steps = new Array(size).fill(0);
         const step = (max - min) / (size - 1);
 
-        for (let o = 0; o < poffset; o++) {
-          const s = stats.samples[o];
-          bins[clamp(0, Math.round((s - min) / step), size - 1)]++;
-        }
+        for (let o = 0; o < size; o++) steps[o] = min + o * step;
+        for (let o = 0; o < poffset; o++) bins[Math.round((stats.samples[o] - min) / step)]++;
 
         return {
-          min, max, step, bins,
+          min, max,
+          step, bins, steps,
           peak: Math.max(...bins),
           outliers: stats.samples.length - 1 - poffset,
           avg: clamp(0, Math.round((stats.avg - min) / step), size - 1),
-          steps: Array.from({ length: size }, (_, o) => min + o * step),
         };
       },
 
@@ -580,34 +586,25 @@ const formats = {
         for (const name in map) {
           const stats = map[name];
           if (tmin > stats.min) tmin = stats.min;
-          if (tmax < stats.p99) tmax = stats.p99;
+          if (tmax < stats.p99) tmax = stats.p99 || stats.max || 1;
         }
 
-        const step = (tmax - tmin) / steps;
+        const step = (tmax - tmin) / (steps - 1);
 
         for (const name in map) {
           const stats = map[name];
 
           const min = stats.min;
           const avg = stats.avg;
-          const max = stats.p99;
           const p25 = stats.p25;
           const p75 = stats.p75;
+          const max = stats.p99 || stats.max || 1;
 
-          let min_offset = 0;
-          let max_offset = 0;
-          let avg_offset = 0;
-          let p25_offset = 0;
-          let p75_offset = 0;
-
-          for (let o = 0; o < steps; o++) {
-            const t = tmin + o * step;
-            if (t <= min) min_offset = o;
-            if (t <= max) max_offset = o;
-            if (t <= avg) avg_offset = o;
-            if (t <= p25) p25_offset = o;
-            if (t <= p75) p75_offset = o;
-          }
+          const min_offset = Math.round((min - tmin) / step);
+          const max_offset = Math.round((max - tmin) / step);
+          const avg_offset = Math.round((avg - tmin) / step);
+          const p25_offset = Math.round((p25 - tmin) / step);
+          const p75_offset = Math.round((p75 - tmin) / step);
 
           const u = new Array(1 + max_offset).fill(' ');
           const m = new Array(1 + max_offset).fill(' ');

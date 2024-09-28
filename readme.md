@@ -102,6 +102,27 @@ On runtimes that expose gc (e.g. bun, `node --expose-gc ...`), mitata will autom
 
 Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
 
+### how to use mitata with engine CLIs like d8, jsc, graaljs, spidermonkey
+
+```bash
+$ xs bench.mjs
+$ quickjs bench.mjs
+$ d8 --expose-gc bench.mjs
+$ spidermonkey -m bench.mjs
+$ graaljs --js.timer-resolution=1 bench.mjs
+$ /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc bench.mjs
+```
+
+```js
+// bench.mjs
+
+import { print } from './src/lib.mjs';
+import { run, bench } from './src/main.mjs'; // git clone
+import { run, bench } from './node_modules/mitata/src/main.mjs'; // npm install
+
+print('hello world'); // works on every engine
+```
+
 ## argumentizing your benchmarks has never been so easy
 
 With other benchmarking libraries, often it's quite hard to easily make benchmarks that go over a range or run the same function with different arguments without writing spaghetti code, but now with mitata converting your benchmark to use arguments is just a function call away.
