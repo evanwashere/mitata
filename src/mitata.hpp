@@ -413,7 +413,6 @@ namespace mitata {
       void baseline(bool baseline = true) { this->_baseline = baseline; }
   };
 
-
   struct k_run {
     bool colors = true;
     std::string format = "mitata";
@@ -421,7 +420,7 @@ namespace mitata {
   };
 
   struct k_collection {
-    char type;
+    std::vector<char> types;
     std::map<std::string, B> benchmarks;
   };
 
@@ -429,36 +428,39 @@ namespace mitata {
     std::vector<k_collection> collections;
 
     public:
-      runner() { collections.push_back({ .type = 'd' }); }
+      runner() { collections.push_back({}); }
 
       B* bench(const std::string name, void (*fn)()) {
         return &collections.back().benchmarks.emplace(name, B(name, fn)).first->second;
       }
 
       void group(std::function<void()> fn) {
-        collections.push_back({ .type = 'g' });
-        fn(); collections.push_back({ .type = 'd' });
+        auto last = &collections.back();
+        if (!last->types.empty()) last->types.push_back('g'); else collections.push_back({ .types = {'g'} });
+
+        fn(); collections.push_back({});
       }
 
       void boxplot(std::function<void()> fn) {
-        collections.push_back({ .type = 'x' });
-        fn(); collections.push_back({ .type = 'd' });
+        auto last = &collections.back();
+        if (!last->types.empty()) last->types.push_back('x'); else collections.push_back({ .types = {'x'} });
+
+        fn(); collections.push_back({});
       }
 
       void barplot(std::function<void()> fn) {
-        collections.push_back({ .type = 'b' });
-        fn(); collections.push_back({ .type = 'd' });
+        auto last = &collections.back();
+        if (!last->types.empty()) last->types.push_back('b'); else collections.push_back({ .types = {'b'} });
+
+        fn(); collections.push_back({});
       }
 
       void summary(std::function<void()> fn) {
-        collections.push_back({ .type = 's' });
-        fn(); collections.push_back({ .type = 'd' });
-      }
+        auto last = &collections.back();
+        if (!last->types.empty()) last->types.push_back('s'); else collections.push_back({ .types = {'s'} });
 
-      // void lineplot(std::function<void()> fn) {
-      //   collections.push_back({ .type = 'l' });
-      //   fn(); collections.push_back({ .type = 'd' });
-      // }
+        fn(); collections.push_back({});
+      }
 
       std::map<std::string, lib::k_stats> run(const k_run opts = k_run()) {
         std::map<std::string, lib::k_stats> stats;
@@ -535,6 +537,7 @@ namespace mitata {
         }
 
         if ("mitata" == opts.format) {
+          const auto k_legend = 28;
           if (opts.colors) std::cout << fmt::colors::gray;
 
           std::cout << "runtime: c++" << std::endl;
@@ -543,12 +546,12 @@ namespace mitata {
           if (opts.colors) std::cout << fmt::colors::reset;
 
           std::cout << std::endl;
-          std::cout << fmt::pad_e("benchmark", 9 + 14);
+          std::cout << fmt::pad_e("benchmark", k_legend);
           std::cout << "avg (min … max) p75   p99    (min … top 1%)" << std::endl;
 
           bool first = true;
           bool optimized_out_warning = false;
-          for (auto o = 0; o < 38; o++) std::cout << "-";
+          for (auto o = 0; o < (15 + k_legend); o++) std::cout << "-";
           std::cout << " "; for (auto o = 0; o < 31; o++) std::cout << "-"; std::cout << std::endl;
 
           for (const auto &collection : collections) {
@@ -565,7 +568,7 @@ namespace mitata {
             else {
               std::cout << std::endl;
               if (opts.colors) std::cout << fmt::colors::gray;
-              for (auto o = 0; o < 38; o++) std::cout << "-"; std::cout << " ";
+              for (auto o = 0; o < (15 + k_legend); o++) std::cout << "-"; std::cout << " ";
               for (auto o = 0; o < 31; o++) std::cout << "-"; std::cout << (!opts.colors ? "" : fmt::colors::reset) << std::endl;
             }
 
@@ -581,7 +584,7 @@ namespace mitata {
 
               if (compact) {
                 auto avg = fmt::pad_s(fmt::time(s.avg), 9);
-                auto fname = fmt::pad_e(fmt::str(name, 23), 23);
+                auto fname = fmt::pad_e(fmt::str(name, k_legend), k_legend);
 
                 std::cout << fname << " ";
                 if (!opts.colors) std::cout << avg << "/iter";
@@ -599,7 +602,7 @@ namespace mitata {
 
               else {
                 auto avg = fmt::pad_s(fmt::time(s.avg), 9);
-                auto fname = fmt::pad_e(fmt::str(name, 23), 23);
+                auto fname = fmt::pad_e(fmt::str(name, k_legend), k_legend);
 
                 std::cout << fname << " ";
                 auto p75 = fmt::pad_s(fmt::time(s.p75), 9);
@@ -621,7 +624,7 @@ namespace mitata {
                 diff += (min.find("µ") != std::string::npos ? 1 : 0);
                 diff += (max.find("µ") != std::string::npos ? 1 : 0);
 
-                std::cout << fmt::pad_e(" ", 15 + diff);
+                std::cout << fmt::pad_e(" ", diff + k_legend - 8);
                 if (!opts.colors) std::cout << "("; else std::cout << fmt::colors::gray << "(" << fmt::colors::reset;
 
                 if (!opts.colors) std::cout << min << " … " << max << ")";
@@ -635,7 +638,7 @@ namespace mitata {
               std::cout << std::endl;
             }
 
-            if ('b' == collection.type) {
+            if (collection.types.end() != std::find(collection.types.begin(), collection.types.end(), 'b')) {
               if (1 >= trials.size()) continue;
 
               std::cout << std::endl;
@@ -645,10 +648,10 @@ namespace mitata {
                 map[trial.first] = trial.second.second.avg;
               }
 
-              std::cout << fmt::barplot(map, 23, 44, opts.colors);
+              std::cout << fmt::barplot(map, k_legend, 44, opts.colors);
             }
 
-            if ('x' == collection.type) {
+            if (collection.types.end() != std::find(collection.types.begin(), collection.types.end(), 'x')) {
               std::cout << std::endl;
               auto map = std::map<std::string, lib::k_stats>();
 
@@ -656,10 +659,10 @@ namespace mitata {
                 map[trial.first] = trial.second.second;
               }
 
-              std::cout << fmt::boxplot(map, 23, 44, opts.colors);
+              std::cout << fmt::boxplot(map, k_legend, 44, opts.colors);
             }
 
-            if ('s' == collection.type) {
+            if (collection.types.end() != std::find(collection.types.begin(), collection.types.end(), 's')) {
               if (1 >= trials.size()) continue;
 
               std::sort(trials.begin(), trials.end(), [](const auto &a, const auto &b) {

@@ -20,10 +20,12 @@ int main() {
     runner.bench("fibonacci2", []() { fibonacci(20); });
   });
 
+  runner.summary([&]() {
   runner.barplot([&]() {
     runner.bench("noop3", []() { })->compact(false);
     runner.bench("fibonacci3", []() { fibonacci(20); })->baseline(false);
     runner.bench("fibonacci4", []() { fibonacci(20); })->baseline(true);
+  });
   });
 
   runner.boxplot([&]() {
