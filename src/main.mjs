@@ -14,6 +14,7 @@ export class B {
   _name = '';
   f = () => { };
   flags = g_flags;
+  _highlight = false;
 
   constructor(name, f) {
     this.f = f;
@@ -21,8 +22,12 @@ export class B {
     if (!kind(f)) throw new TypeError(`expected iterator, generator or one-shot function`);
   }
 
-  name(name) {
-    return (this._name = name, this);
+  highlight(color = false) {
+    return (this._highlight = color, this);
+  }
+
+  name(name, highlight = false) {
+    return (this._name = name, this._highlight = highlight, this);
   }
 
   compact(bool = true) {
@@ -256,6 +261,7 @@ function colors() {
 }
 
 async function cpu() {
+  if (globalThis.process?.versions?.webcontainer) return 'webcontainer';
   try { let n; if (n = require('os')?.cpus?.()?.[0]?.model) return n; } catch { }
   try { let n; if (n = require('node:os')?.cpus?.()?.[0]?.model) return n; } catch { }
   try { let n; if (n = (await import('node:os'))?.cpus?.()?.[0]?.model) return n; } catch { }
@@ -672,8 +678,10 @@ const formats = {
     print(`${'-'.repeat(38)} ${'-'.repeat(31)}`);
 
     function print_run(b, run) {
+      const _h = x => $[$.colors[$.colors.indexOf(b._highlight)]]?.(x) ?? x;
+
       for (const r of run.runs) {
-        if (r.error) { print(`${$.str(r.name, 23).padEnd(23)} ${$.red('error:')} ${r.error.message ?? r.error}`); continue; }
+        if (r.error) { print(`${_h($.str(r.name, 23).padEnd(23))} ${$.red('error:')} ${r.error.message ?? r.error}`); continue; }
 
         const compact = b.flags & flags.compact;
         const noop = 'iter' !== r.stats.kind ? ctx.noop.fn : ctx.noop.iter;
@@ -682,12 +690,12 @@ const formats = {
         optimized_out_warning = optimized_out_warning || optimized_out;
 
         if (compact) {
-          print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9) + ' ' + $.time(r.stats.p99).padStart(9))} ${$.histogram(r.stats, 11, 1)}${!optimized_out ? '' : $.red(' !')}`);
+          print(`${_h($.str(r.name, 23).padEnd(23))} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9) + ' ' + $.time(r.stats.p99).padStart(9))} ${$.histogram(r.stats, 11, 1)}${!optimized_out ? '' : $.red(' !')}`);
         }
 
         else {
           const histogram = $.histogram(r.stats, 21, 2);
-          print(`${$.str(r.name, 23).padEnd(23)} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9))} ${histogram[0]}${!optimized_out ? '' : $.red(' !')}`);
+          print(`${_h($.str(r.name, 23).padEnd(23))} ${$.bold($.yellow($.time(r.stats.avg).padStart(9)) + '/iter')} ${$.gray($.time(r.stats.p75).padStart(9))} ${histogram[0]}${!optimized_out ? '' : $.red(' !')}`);
 
           print(
             ' '.repeat(15)

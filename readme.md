@@ -14,6 +14,8 @@
 
 `npm install mitata`
 
+try mitata in browser with ai assistant at [https://bolt.new/~/mitata](https://bolt.new/~/mitata)
+
 ## Recommendations
 
 - use dedicated hardware for running benchmarks
