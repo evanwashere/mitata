@@ -1,4 +1,5 @@
 type Gen = Generator<() => any, void, undefined> | AsyncGenerator<() => any, void, undefined>;
+type Color = 'red' | 'cyan' | 'white' | 'green' | 'yellow' | 'magenta' | 'blue' | 'black' | 'gray';
 
 export function measure(fn: () => any, opts?: k_options): Promise<stats>;
 export function measure(gen: (state: k_statefree) => Gen, opts?: k_options): Promise<stats>;
@@ -109,13 +110,14 @@ export class B {
   constructor(name: string, gen: (state: k_state) => Gen);
   constructor(name: string, iter: (state: k_iter & k_state) => any);
 
-  name(name: string): this;
   args(values: any[]): this;
   compact(bool?: boolean): this;
   baseline(bool?: boolean): this;
+  highlight(color?: Color): this;
   run(thrw?: boolean): Promise<trial>;
   args(map: Record<string, any[]>): this;
   args(name: string, values: any[]): this;
+  name(name: string, highlight?: Color): this;
   range(name: string, s: number, e: number, multiplier?: number): this;
   dense_range(name: string, s: number, e: number, accumulator?: number): this;
 }
