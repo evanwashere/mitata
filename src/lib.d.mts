@@ -44,6 +44,7 @@ interface stats {
 
 interface k_options {
   now?: () => number;
+  inner_gc?: boolean;
   min_samples?: number;
   max_samples?: number;
   min_cpu_time?: number;

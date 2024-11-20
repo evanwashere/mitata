@@ -47,6 +47,7 @@ interface stats {
 
 interface k_options {
   now?: () => number;
+  inner_gc?: boolean;
   min_samples?: number;
   max_samples?: number;
   min_cpu_time?: number;
@@ -119,6 +120,7 @@ export class B {
   run(thrw?: boolean): Promise<trial>;
   args(map: Record<string, any[]>): this;
   args(name: string, values: any[]): this;
+  gc(gc?: 'once' | 'inner' | boolean): this;
   name(name: string, highlight?: Color): this;
   range(name: string, s: number, e: number, multiplier?: number): this;
   dense_range(name: string, s: number, e: number, accumulator?: number): this;

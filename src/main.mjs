@@ -14,21 +14,26 @@ export class B {
   _args = {};
   _name = '';
   _group = 0;
+  _gc = 'once';
   flags = FLAGS;
   _highlight = false;
 
   constructor(name, f) {
     this.f = f;
     this.name(name);
-    if (!kind(f)) throw new TypeError(`expected iterator, generator or one-shot function`);
-  }
-
-  highlight(color = false) {
-    return (this._highlight = color, this);
+    if (!kind(f)) throw new TypeError('expected iterator, generator or one-shot function');
   }
 
   name(name, color = false) {
     return (this._name = name, this.highlight(color), this);
+  }
+
+  gc(gc = 'once') {
+    if (![true, false, 'once', 'inner'].includes(gc)) throw new TypeError('invalid gc type'); return (this._gc = gc, this);
+  }
+
+  highlight(color = false) {
+    if (color && !$.colors.includes(color)) throw new TypeError('invalid highlight color'); return (this._highlight = color, this);
   }
 
   compact(bool = true) {
@@ -79,7 +84,10 @@ export class B {
 
     if (kind === 'static') {
       let stats, error;
-      try { stats = await measure(this.f); }
+      try { stats = await measure(this.f, {
+        inner_gc: 'inner' === this._gc,
+        gc: !this._gc ? false : undefined,
+      }); }
       catch (err) { error = err; if (thrw) throw err; }
 
       return {
@@ -107,7 +115,7 @@ export class B {
           let _name = this._name;
           for (let oo = 0; oo < args.length; oo++) _args[args[oo]] = this._args[args[oo]][offsets[oo]];
           for (let oo = 0; oo < args.length; oo++) _name = _name.replace(`\$${args[oo]}`, _args[args[oo]]);
-          try { stats = await measure(this.f, { args: _args }); } catch (err) { error = err; if (thrw) throw err; }
+          try { stats = await measure(this.f, { args: _args, inner_gc: 'inner' === this._gc, gc: !this._gc ? false : undefined, }); } catch (err) { error = err; if (thrw) throw err; }
 
           runs[o] = {
             stats, error,
