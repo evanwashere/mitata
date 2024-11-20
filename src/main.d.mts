@@ -73,13 +73,15 @@ export function summary(f: () => any): void;
 export function boxplot(f: () => any): void;
 export function barplot(f: () => any): void;
 export function lineplot(f: () => any): void;
+export function group(name: string, f: () => any): void;
 export function group(f: () => Promise<any>): Promise<void>;
 export function compact(f: () => Promise<any>): Promise<void>;
 export function summary(f: () => Promise<any>): Promise<void>;
 export function boxplot(f: () => Promise<any>): Promise<void>;
 export function barplot(f: () => Promise<any>): Promise<void>;
+export function group(name: string, f: () => Promise<any>): Promise<void>;
 
-export function run(opts?: { throw?: boolean; filter?: RegExp; colors?: boolean; format?: 'json' | 'quiet' | 'mitata'; }): Promise<{ context: ctx, benchmarks: trial[] }>;
+export function run(opts?: { throw?: boolean; filter?: RegExp; colors?: boolean; format?: 'json' | 'quiet' | 'mitata' | 'markdown'; }): Promise<{ context: ctx, benchmarks: trial[] }>;
 
 export const flags: {
   compact: number;
