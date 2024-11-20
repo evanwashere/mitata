@@ -214,7 +214,7 @@ namespace mitata {
       auto steps = std::vector<f64>(size, 0);
 
       for (auto o = 0; o < size; o++) steps[o] = min + o * step;
-      for (auto o = 0; o < poffset; o++) bins[std::round((stats.samples[o] - min) / step)]++;
+      for (auto o = 0; o <= poffset; o++) bins[std::round((stats.samples[o] - min) / step)]++;
 
       return {
         .min = min, .max = max,

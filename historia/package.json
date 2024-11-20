@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "version": "0.0.0",
+  "name": "@mitata/historia",
+
+  "dependencies": {
+    "@clickhouse/client": "1.8.1"
+  }
+}
