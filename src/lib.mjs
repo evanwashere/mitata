@@ -5,7 +5,7 @@ const AsyncGeneratorFunction = (async function* () { }).constructor;
 export async function measure(f, ...args) {
   return await {
     fn, iter, yield: generator,
-    [void 0]() { throw new TypeError(`expected iterator, generator or one-shot function`); },
+    [void 0]() { throw new TypeError('expected iterator, generator or one-shot function'); },
   }[kind(f)](f, ...args);
 }
 
@@ -16,10 +16,10 @@ export async function generator(gen, opts = {}) {
 
   const g = gen(ctx);
   const n = await g.next();
-  if (n.done || 'fn' !== kind(n.value)) throw new TypeError(`expected benchmarkable yield from generator`);
+  if (n.done || 'fn' !== kind(n.value)) throw new TypeError('expected benchmarkable yield from generator');
 
   const stats = await fn(n.value, opts);
-  if (!(await g.next()).done) throw new TypeError(`expected generator to yield once`);
+  if (!(await g.next()).done) throw new TypeError('expected generator to yield once');
 
   return {
     ...stats,
@@ -109,6 +109,7 @@ export const k_warmup_threshold = 500_000;
 function defaults(opts) {
   opts.gc ??= gc;
   opts.now ??= now;
+  opts.inner_gc ??= false;
   opts.min_samples ??= k_min_samples;
   opts.max_samples ??= k_max_samples;
   opts.min_cpu_time ??= k_min_cpu_time;
@@ -148,6 +149,15 @@ export async function fn(fn, opts = {}) {
     for (; _ < ${opts.max_samples}; _++) {
       if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
 
+      ${!(opts.gc && opts.inner_gc) ? '' : `
+        let inner_gc_cost = 0;
+
+        igc: {
+          const t0 = $now(); $gc();
+          inner_gc_cost = $now() - t0;
+        }
+      `}
+
       const t0 = $now();
 
       ${!batch ? `${!async ? '' : 'await'} $fn();` : `
@@ -159,8 +169,8 @@ export async function fn(fn, opts = {}) {
       const t1 = $now();
       const diff = t1 - t0;
 
-      t += diff;
       samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
+      t += diff ${!(opts.gc && opts.inner_gc) ? '' : `+ inner_gc_cost`};
     }
 
     samples.length = _;
@@ -223,6 +233,16 @@ export async function iter(iter, opts = {}) {
 
       for (; _ < ${opts.max_samples}; _++) {
         if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
+
+        ${!(opts.gc && opts.inner_gc) ? '' : `
+          let inner_gc_cost = 0;
+
+          igc: {
+            const t0 = $now(); $gc();
+            inner_gc_cost = $now() - t0;
+          }
+        `}
+
         const t0 = $now();
         
         ${!batch ? 'yield void 0;' : `
@@ -234,8 +254,8 @@ export async function iter(iter, opts = {}) {
         const t1 = $now();
         const diff = t1 - t0;
 
-        t += diff;
         $samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
+        t += diff ${!(opts.gc && opts.inner_gc) ? '' : `+ inner_gc_cost`};
       }
 
       $samples.length = _;

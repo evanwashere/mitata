@@ -100,6 +100,18 @@ auto stats = runner.run({ .colors = true, .format = "json", .filter = std::regex
 
 On runtimes that expose gc (e.g. bun, `node --expose-gc ...`), mitata will automatically run garbage collection before each benchmark.
 
+This behavior can be further customized via the `gc` function on each benchmark (you should only do this when absolutely necessary - big gc spikes):
+
+```js
+bench('lots of allocations', () => {
+  Array.from({ length: 1024 }, () => Array.from({ length: 1024 }, () => new Array(1024)));
+})
+// false | 'once' (default) | 'inner'
+// once runs gc after warmup
+// inner runs gc after warmup and before each (batch-)iteration
+.gc('inner');
+```
+
 ## universal compatibility
 
 Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
