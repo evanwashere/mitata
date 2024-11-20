@@ -358,7 +358,7 @@ const formats = {
 
       if (!trials.length) continue; if (!first) print('');
       const name_len = trials.reduce((a, b) => Math.max(a, b.runs.reduce((a, b) => Math.max(a, b.name.length), 0)), 0);
-      print(`| ${(first ? 'benchmark' : ('string' !== typeof collection.name ? '' : `• ${collection.name}`)).padEnd(name_len)} | ${'avg'.padStart(2 + 14)} | ${'min'.padStart(2 + 9)} | ${'p75'.padStart(2 + 9)} | ${'p99'.padStart(2 + 9)} | ${'max'.padStart(2 + 9)} |`);
+      print(`| ${('string' !== typeof collection.name ? (!first ? '' : 'benchmark') : `• ${collection.name}`).padEnd(name_len)} | ${'avg'.padStart(2 + 14)} | ${'min'.padStart(2 + 9)} | ${'p75'.padStart(2 + 9)} | ${'p99'.padStart(2 + 9)} | ${'max'.padStart(2 + 9)} |`);
       print(`| ${'-'.repeat(name_len)} | ${'-'.repeat(2 + 14)} | ${'-'.repeat(2 + 9)} | ${'-'.repeat(2 + 9)} | ${'-'.repeat(2 + 9)} | ${'-'.repeat(2 + 9)} |`);
 
       first = false;
@@ -394,7 +394,15 @@ const formats = {
       const has_matches = collection.trials.some(trial => opts.filter.test(trial._name));
 
       if (!has_matches) continue;
-      else if (first) first = false;
+      else if (first) {
+        first = false;
+
+        if ('string' === typeof collection.name) {
+          print(`• ${collection.name}`);
+          if (!opts.colors) print('-'.repeat(15 + k_legend) + ' ' + '-'.repeat(31));
+          else print($.gray + '-'.repeat(15 + k_legend) + ' ' + '-'.repeat(31) + $.reset);
+        }
+      }
 
       else {
         print('');
