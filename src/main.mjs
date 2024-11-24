@@ -1,8 +1,8 @@
 export { measure } from './lib.mjs';
-import { kind, print, measure } from './lib.mjs';
+import { kind, print, measure, k_min_cpu_time } from './lib.mjs';
 
 let FLAGS = 0;
-let COLLECTIONS = [{ name: 0, types: [], trials: [] }];
+let COLLECTIONS = [{ id: 0, name: null, types: [], trials: [] }];
 
 export const flags = {
   compact: 1 << 0,
@@ -82,12 +82,15 @@ export class B {
     const args = Object.keys(this._args);
     const kind = 0 === args.length ? 'static' : (1 === args.length ? 'args' : 'multi-args');
 
+    const tune = {
+      inner_gc: 'inner' === this._gc,
+      gc: !this._gc ? false : undefined,
+      min_cpu_time: 'inner' !== this._gc ? undefined : (1.42 * k_min_cpu_time),
+    };
+
     if (kind === 'static') {
       let stats, error;
-      try { stats = await measure(this.f, {
-        inner_gc: 'inner' === this._gc,
-        gc: !this._gc ? false : undefined,
-      }); }
+      try { stats = await measure(this.f, tune); }
       catch (err) { error = err; if (thrw) throw err; }
 
       return {
@@ -115,7 +118,7 @@ export class B {
           let _name = this._name;
           for (let oo = 0; oo < args.length; oo++) _args[args[oo]] = this._args[args[oo]][offsets[oo]];
           for (let oo = 0; oo < args.length; oo++) _name = _name.replace(`\$${args[oo]}`, _args[args[oo]]);
-          try { stats = await measure(this.f, { args: _args, inner_gc: 'inner' === this._gc, gc: !this._gc ? false : undefined, }); } catch (err) { error = err; if (thrw) throw err; }
+          try { stats = await measure(this.f, { ...tune, args: _args }); } catch (err) { error = err; if (thrw) throw err; }
 
           runs[o] = {
             stats, error,
@@ -140,11 +143,17 @@ export class B {
 
 // ------ collections ------
 
+export function boxplot(f) { return _c(f, 'x'); }
+export function barplot(f) { return _c(f, 'b'); }
+export function summary(f) { return _c(f, 's'); }
+export function lineplot(f) { return _c(f, 'l'); }
+export function group(name, f) { if (typeof name === 'function') (f = name, name = null); return _c(f, 'g', name); }
+
 export function bench(n, fn) {
   if (typeof n === 'function') (fn = n, n = fn.name || 'anonymous');
 
   const collection = COLLECTIONS[COLLECTIONS.length - 1];
-  const b = new B(n, fn); b._group = collection.name; return (collection.trials.push(b), b);
+  const b = new B(n, fn); b._group = collection.id; return (collection.trials.push(b), b);
 }
 
 export function compact(f) {
@@ -156,53 +165,14 @@ export function compact(f) {
   else return r.then(() => (FLAGS = old, void 0));
 }
 
-export function group(name, f) {
-  if (typeof name === 'function') (f = name, name = null);
-
-  if (name != null) name = String(name);
+const _c = (f, t, name = null) => {
   const last = COLLECTIONS[COLLECTIONS.length - 1];
-  COLLECTIONS.push({ trials: [], types: ['g', ...last.types], name: name ?? COLLECTIONS.length });
+  COLLECTIONS.push({ trials: [], name: name ?? last.name, id: COLLECTIONS.length, types: [t, ...last.types] });
 
   const r = f();
-  if (!(r instanceof Promise)) COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length });
-  else return r.then(() => (COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length }), void 0));
-}
-
-export function boxplot(f) {
-  const last = COLLECTIONS[COLLECTIONS.length - 1];
-  COLLECTIONS.push({ trials: [], types: ['x', ...last.types], name: COLLECTIONS.length });
-
-  const r = f();
-  if (!(r instanceof Promise)) COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length });
-  else return r.then(() => (COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length }), void 0));
-}
-
-export function barplot(f) {
-  const last = COLLECTIONS[COLLECTIONS.length - 1];
-  COLLECTIONS.push({ trials: [], types: ['b', ...last.types], name: COLLECTIONS.length });
-
-  const r = f();
-  if (!(r instanceof Promise)) COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length });
-  else return r.then(() => (COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length }), void 0));
-}
-
-export function summary(f) {
-  const last = COLLECTIONS[COLLECTIONS.length - 1];
-  COLLECTIONS.push({ trials: [], types: ['s', ...last.types], name: COLLECTIONS.length });
-
-  const r = f();
-  if (!(r instanceof Promise)) COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length });
-  else return r.then(() => (COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length }), void 0));
-}
-
-export function lineplot(f) {
-  const last = COLLECTIONS[COLLECTIONS.length - 1];
-  COLLECTIONS.push({ trials: [], types: ['l', ...last.types], name: COLLECTIONS.length });
-
-  const r = f();
-  if (!(r instanceof Promise)) COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length });
-  else return r.then(() => (COLLECTIONS.push({ trials: [], types: last.types, name: COLLECTIONS.length }), void 0));
-}
+  const n = { trials: [], name: last.name, types: last.types, id: COLLECTIONS.length };
+  if (!(r instanceof Promise)) COLLECTIONS.push(n); else return r.then(() => (COLLECTIONS.push(n), void 0));
+};
 
 // ------ runtime ------
 
@@ -358,7 +328,7 @@ const formats = {
 
       if (!trials.length) continue; if (!first) print('');
       const name_len = trials.reduce((a, b) => Math.max(a, b.runs.reduce((a, b) => Math.max(a, b.name.length), 0)), 0);
-      print(`| ${('string' !== typeof collection.name ? (!first ? '' : 'benchmark') : `• ${collection.name}`).padEnd(name_len)} | ${'avg'.padStart(2 + 14)} | ${'min'.padStart(2 + 9)} | ${'p75'.padStart(2 + 9)} | ${'p99'.padStart(2 + 9)} | ${'max'.padStart(2 + 9)} |`);
+      print(`| ${(collection.name ? `• ${collection.name}` : (!first ? '' : 'benchmark')).padEnd(name_len)} | ${'avg'.padStart(2 + 14)} | ${'min'.padStart(2 + 9)} | ${'p75'.padStart(2 + 9)} | ${'p99'.padStart(2 + 9)} | ${'max'.padStart(2 + 9)} |`);
       print(`| ${'-'.repeat(name_len)} | ${'-'.repeat(2 + 14)} | ${'-'.repeat(2 + 9)} | ${'-'.repeat(2 + 9)} | ${'-'.repeat(2 + 9)} | ${'-'.repeat(2 + 9)} |`);
 
       first = false;
@@ -394,10 +364,11 @@ const formats = {
       const has_matches = collection.trials.some(trial => opts.filter.test(trial._name));
 
       if (!has_matches) continue;
+
       else if (first) {
         first = false;
 
-        if ('string' === typeof collection.name) {
+        if (collection.name) {
           print(`• ${collection.name}`);
           if (!opts.colors) print('-'.repeat(15 + k_legend) + ' ' + '-'.repeat(31));
           else print($.gray + '-'.repeat(15 + k_legend) + ' ' + '-'.repeat(31) + $.reset);
@@ -406,7 +377,7 @@ const formats = {
 
       else {
         print('');
-        if ('string' === typeof collection.name) print(`• ${collection.name}`);
+        if (collection.name) print(`• ${collection.name}`);
         if (!opts.colors) print('-'.repeat(15 + k_legend) + ' ' + '-'.repeat(31));
         else print($.gray + '-'.repeat(15 + k_legend) + ' ' + '-'.repeat(31) + $.reset);
       }
@@ -857,8 +828,8 @@ const formats = {
     }
 
     if (optimized_out_warning)
-      if (!opts.colors) print('! = benchmark was likely optimized out (dead code elimination)');
-      else print($.red + '!' + $.reset + $.gray + ' = ' + $.reset + 'benchmark was likely optimized out' + ' ' + $.gray + '(dead code elimination)' + $.reset);
+      if (!opts.colors) (print(''), print('! = benchmark was likely optimized out (dead code elimination)'));
+      else (print(''), print($.red + '!' + $.reset + $.gray + ' = ' + $.reset + 'benchmark was likely optimized out' + ' ' + $.gray + '(dead code elimination)' + $.reset));
   },
 };
 

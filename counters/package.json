@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "main": "src/lib.mjs",
+  "name": "@mitata/counters"
+}
