@@ -724,7 +724,8 @@ const formats = {
 
         else {
           let header = false;
-          const baseline = trials.find(([trial, bench]) => bench.baseline && bench.runs.some(r => r.stats)) || trials[0][1];
+          const btrial = trials.find(([trial, bench]) => bench.baseline && bench.runs.some(r => r.stats)) || trials[0];
+          const baseline = btrial && btrial[1];
 
           if (baseline) {
             const bruns = baseline.runs.filter(r => !r.error).sort((a, b) => a.stats.avg - b.stats.avg);
