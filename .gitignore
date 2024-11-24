@@ -3,3 +3,6 @@ target/
 node_modules/
 historia/*.css
 historia/*.mjs
+counters/dist/
+counters/zig-out/
+counters/.zig-cache/
