@@ -866,6 +866,16 @@ export const $ = {
     return `${s.slice(0, len - 2)}..`;
   },
 
+  amount(n) {
+    if (n < 1e3) return n.toFixed(2); n /= 1000;
+    if (n < 1e3) return `${n.toFixed(2)} k`; n /= 1000;
+    if (n < 1e3) return `${n.toFixed(2)} M`; n /= 1000;
+    if (n < 1e3) return `${n.toFixed(2)} G`; n /= 1000;
+    if (n < 1e3) return `${n.toFixed(2)} T`; n /= 1000;
+
+    return `${n.toFixed(2)} P`;
+  },
+
   time(ns) {
     if (ns < 1e0) return `${(ns * 1e3).toFixed(2)} ps`;
     if (ns < 1e3) return `${ns.toFixed(2)} ns`; ns /= 1000;

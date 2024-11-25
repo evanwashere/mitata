@@ -137,7 +137,7 @@ import { run, bench } from './node_modules/mitata/src/main.mjs'; // npm install
 print('hello world'); // works on every engine
 ```
 
-## argumentizing your benchmarks has never been so easy
+## adding arguments and parameters to your benchmarks has never been so easy
 
 With other benchmarking libraries, often it's quite hard to easily make benchmarks that go over a range or run the same function with different arguments without writing spaghetti code, but now with mitata converting your benchmark to use arguments is just a function call away.
 
@@ -154,6 +154,29 @@ bench(function* look_mom_no_spaghetti(state) {
 .range('len', 1, 1024) // 1, 8, 64, 512...
 .dense_range('len', 1, 100) // 1, 2, 3 ... 99, 100
 .args({ len: [1, 2, 3], len2: ['4', '5', '6'] }) // every possible combination
+```
+
+### computed parameters
+
+For cases where you need unique copy of value for each iteration, mitata supports creating computed parameters that do not count towards benchmark results *(note: there is no guarantee of recompute time, order, or call count)*:
+
+```js
+bench('deleting $keys from object', function* (state) {
+  const keys = state.get('keys');
+
+  const obj = {};
+  for (let i = 0; i < keys; i++) obj[i] = i;
+
+  yield {
+    [0]() {
+      return { ...obj };
+    },
+
+    bench(arg0) {
+      for (let i = 0; i < keys; i++) delete arg0[i];
+    },
+  };
+}).args('keys', [1, 10, 100]);
 ```
 
 ## helpful warnings

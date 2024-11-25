@@ -30,6 +30,25 @@ function generateRandomArray(size) {
 bench('1 + 1', () => 1 + 1);
 bench('Date.now()', () => Date.now());
 
+group(() => {
+  bench('deleting $keys from object', function* (state) {
+    const keys = state.get('keys');
+  
+    const obj = {};
+    for (let i = 0; i < keys; i++) obj[i] = i;
+  
+    yield {
+      [0]() {
+        return { ...obj };
+      },
+  
+      bench(arg0) {
+        for (let i = 0; i < keys; i++) delete arg0[i];
+      },
+    };
+  }).args('keys', [1, 10, 100]);
+});
+
 boxplot(() => {
   bench('Bubble Sort', () => {
     const arr = generateRandomArray(1000);
@@ -51,7 +70,16 @@ compact(() => {
   summary(() => {
     bench('new Array($len)', function* (state) {
       const len = state.get('len');
-      yield () => new Array(len);
+
+      yield {
+        [0]() {
+          return len;
+        },
+
+        bench(len) {
+          return new Array(len);
+        },
+      }
     }).range('len', 1, 1024);
 
     bench('Array.from($len)', function* (state) {
