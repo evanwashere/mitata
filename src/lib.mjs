@@ -16,9 +16,19 @@ export async function generator(gen, opts = {}) {
 
   const g = gen(ctx);
   const n = await g.next();
-  if (n.done || 'fn' !== kind(n.value)) throw new TypeError('expected benchmarkable yield from generator');
+  if (n.done || 'fn' !== kind(n.value)) {
+    if ('fn' !== kind(n.value?.bench, true)) throw new TypeError('expected benchmarkable yield from generator');
 
-  const stats = await fn(n.value, opts);
+    opts.params ??= {};
+    const params = n.value.bench.length;
+
+    for (let o = 0; o < params; o++) {
+      opts.params[o] = n.value[o];
+      if ('fn' !== kind(n.value[o])) throw new TypeError('expected function for benchmark parameter');
+    }
+  }
+
+  const stats = await fn('fn' === kind(n.value) ? n.value : n.value.bench, opts);
   if (!(await g.next()).done) throw new TypeError('expected generator to yield once');
 
   return {
@@ -64,7 +74,7 @@ export const now = (() => {
   } catch { return () => 1e6 * Date.now(); }
 })();
 
-export function kind(fn) {
+export function kind(fn, _ = false) {
   if (!(
     fn instanceof Function
     || fn instanceof AsyncFunction
@@ -78,7 +88,7 @@ export function kind(fn) {
   ) return 'yield';
 
   if (
-    0 === fn.length
+    (_ ? true : (0 === fn.length))
 
     && (
       fn instanceof Function
@@ -109,6 +119,7 @@ export const k_warmup_threshold = 500_000;
 function defaults(opts) {
   opts.gc ??= gc;
   opts.now ??= now;
+  opts.params ??= {};
   opts.inner_gc ??= false;
   opts.min_samples ??= k_min_samples;
   opts.max_samples ??= k_max_samples;
@@ -125,29 +136,54 @@ export async function fn(fn, opts = {}) {
   defaults(opts);
   let async = false;
   let batch = false;
+  const params = Object.keys(opts.params);
 
   warmup: {
+    const $p = new Array(params.length);
+
+    for (let o = 0; o < params.length; o++) {
+      $p[o] = await opts.params[o]();
+    }
+
     const t0 = now();
-    const r = fn(); let t1 = now();
+    const r = fn(...$p); let t1 = now();
     if (async = r instanceof Promise) (await r, t1 = now());
 
     if ((t1 - t0) <= opts.warmup_threshold) {
       for (let o = 0; o < opts.warmup_samples; o++) {
+        for (let oo = 0; oo < params.length; oo++) {
+          $p[oo] = await opts.params[oo]();
+        }
+
         const t0 = now();
-        await fn(); const t1 = now();
+        await fn(...$p); const t1 = now();
         if (batch = (t1 - t0) <= opts.batch_threshold) break;
       }
     }
   }
 
-  const loop = new AsyncFunction('$fn', '$gc', '$now', `
+  const loop = new AsyncFunction('$fn', '$gc', '$now', '$params', `
     let _ = 0; let t = 0;
     let samples = new Array(2 ** 20);
+
+    ${!params.length ? '' : Array.from({ length: params.length }, (_, o) => `
+      let param_${o} = ${!batch ? 'null' : `new Array(${opts.batch_samples})`};
+    `.trim()).join(' ')}
 
     ${!opts.gc ? '' : `$gc();`}
 
     for (; _ < ${opts.max_samples}; _++) {
       if (_ >= ${opts.min_samples} && t >= ${opts.min_cpu_time}) break;
+
+      ${!params.length ? '' : `
+        ${!batch ? `
+          ${Array.from({ length: params.length }, (_, o) => `if ((param_${o} = $params[${o}]()) instanceof Promise) param_${o} = await param_${o};`).join(' ')}
+        ` : `
+          for (let o = 0; o < ${opts.batch_samples}; o++) {
+            ${Array.from({ length: params.length }, (_, o) => `if ((param_${o}[o] = $params[${o}]()) instanceof Promise) param_${o}[o] = await param_${o}[o];`).join(' ')}
+          }
+        `}
+      `}
 
       ${!(opts.gc && opts.inner_gc) ? '' : `
         let inner_gc_cost = 0;
@@ -160,9 +196,23 @@ export async function fn(fn, opts = {}) {
 
       const t0 = $now();
 
-      ${!batch ? `${!async ? '' : 'await'} $fn();` : `
+      ${!batch ? `
+        ${!async ? '' : 'await '} ${!params.length ? `
+          $fn();
+        ` : `
+          $fn(${Array.from({ length: params.length }, (_, o) => `param_${o}`).join(', ')});
+        `}
+      ` : `
         for (let o = 0; o < ${(opts.batch_samples / opts.batch_unroll) | 0}; o++) {
-          ${new Array(opts.batch_unroll).fill(`${!async ? '' : 'await'} $fn();`).join(' ')}
+          ${!params.length ? `
+            ${new Array(opts.batch_unroll).fill(`${!async ? '' : 'await'} $fn();`).join(' ')}
+          ` : `
+            const param_offset = o * ${opts.batch_unroll};
+
+            ${Array.from({ length: opts.batch_unroll }, (_, u) => `
+              ${!async ? '' : 'await'} $fn(${Array.from({ length: params.length }, (_, o) => `param_${o}[${u === 0 ? '' : `${u} + `}param_offset]`).join(', ')});
+            `.trim()).join('\n' + ' '.repeat(12))}
+          `}
         }
       `}
 
@@ -170,7 +220,7 @@ export async function fn(fn, opts = {}) {
       const diff = t1 - t0;
 
       samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
-      t += diff ${!(opts.gc && opts.inner_gc) ? '' : `+ inner_gc_cost`};
+      t += diff ${!(opts.gc && opts.inner_gc) ? '' : '+ inner_gc_cost'};
     }
 
     samples.length = _;
@@ -194,7 +244,7 @@ export async function fn(fn, opts = {}) {
   return {
     kind: 'fn',
     debug: loop.toString(),
-    ...(await loop(fn, opts.gc, opts.now)),
+    ...(await loop(fn, opts.gc, opts.now, opts.params)),
   };
 }
 
@@ -255,7 +305,7 @@ export async function iter(iter, opts = {}) {
         const diff = t1 - t0;
 
         $samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
-        t += diff ${!(opts.gc && opts.inner_gc) ? '' : `+ inner_gc_cost`};
+        t += diff ${!(opts.gc && opts.inner_gc) ? '' : '+ inner_gc_cost'};
       }
 
       $samples.length = _;
