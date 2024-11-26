@@ -2,6 +2,9 @@ const AsyncFunction = (async () => { }).constructor;
 const GeneratorFunction = (function* () { }).constructor;
 const AsyncGeneratorFunction = (async function* () { }).constructor;
 
+export function do_not_optimize(v) { $._ = v; }
+export const $ = { _: null, __() { return print($._); } };
+
 export async function measure(f, ...args) {
   return await {
     fn, iter, yield: generator,

@@ -3,6 +3,7 @@ type Gen = Generator<() => any, void, undefined> | AsyncGenerator<() => any, voi
 export function gc(): void;
 export function now(): number;
 export function print(line: string): void;
+export function do_not_optimize(v: any): void;
 export function fn(fn: () => any, opts?: k_options): Promise<stats>;
 export function kind(fn: Function): 'fn' | 'iter' | 'yield' | undefined;
 export function generator(gen: (state: k_statefree) => Gen, opts?: k_options): Promise<stats>;
