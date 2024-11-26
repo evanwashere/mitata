@@ -121,6 +121,7 @@ function defaults(opts) {
   opts.now ??= now;
   opts.params ??= {};
   opts.inner_gc ??= false;
+  opts.$counters ??= false;
   opts.min_samples ??= k_min_samples;
   opts.max_samples ??= k_max_samples;
   opts.min_cpu_time ??= k_min_cpu_time;
@@ -162,7 +163,9 @@ export async function fn(fn, opts = {}) {
     }
   }
 
-  const loop = new AsyncFunction('$fn', '$gc', '$now', '$params', `
+  const loop = new AsyncFunction('$fn', '$gc', '$now', '$params', '$counters', `
+    ${!opts.$counters ? '' : 'try { $counters.init(); '}
+
     let _ = 0; let t = 0;
     let samples = new Array(2 ** 20);
 
@@ -194,7 +197,7 @@ export async function fn(fn, opts = {}) {
         }
       `}
 
-      const t0 = $now();
+      ${!opts.$counters ? '' : '$counters.before();'} const t0 = $now();
 
       ${!batch ? `
         ${!async ? '' : 'await '} ${!params.length ? `
@@ -216,9 +219,9 @@ export async function fn(fn, opts = {}) {
         }
       `}
 
-      const t1 = $now();
-      const diff = t1 - t0;
+      const t1 = $now(); ${!opts.$counters ? '' : '$counters.after();'}
 
+      const diff = t1 - t0;
       samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
       t += diff ${!(opts.gc && opts.inner_gc) ? '' : '+ inner_gc_cost'};
     }
@@ -238,13 +241,16 @@ export async function fn(fn, opts = {}) {
       p999: samples[(.999 * (samples.length - 1)) | 0],
       avg: samples.reduce((a, v) => a + v, 0) / samples.length,
       ticks: samples.length ${!batch ? '' : `* ${opts.batch_samples}`},
+      ${!opts.$counters ? '' : `counters: $counters.translate(${!batch ? 1 : opts.batch_samples}, samples.length),`}
     };
+
+    ${!opts.$counters ? '' : '} finally { $counters.deinit(); }'}
   `);
 
   return {
     kind: 'fn',
     debug: loop.toString(),
-    ...(await loop(fn, opts.gc, opts.now, opts.params)),
+    ...(await loop(fn, opts.gc, opts.now, opts.params, opts.$counters)),
   };
 }
 
@@ -260,6 +266,7 @@ export async function iter(iter, opts = {}) {
     get(name) { return opts.args?.[name] },
   };
 
+  // TODO: counters
   const gen = (function* () {
     let batch = false;
 

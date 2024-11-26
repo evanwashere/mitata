@@ -2,6 +2,7 @@ export { measure } from './lib.mjs';
 import { kind, print, measure, k_min_cpu_time } from './lib.mjs';
 
 let FLAGS = 0;
+let $counters = null;
 let COLLECTIONS = [{ id: 0, name: null, types: [], trials: [] }];
 
 export const flags = {
@@ -83,6 +84,7 @@ export class B {
     const kind = 0 === args.length ? 'static' : (1 === args.length ? 'args' : 'multi-args');
 
     const tune = {
+      $counters,
       inner_gc: 'inner' === this._gc,
       gc: !this._gc ? false : undefined,
       min_cpu_time: 'inner' !== this._gc ? undefined : (1.42 * k_min_cpu_time),
@@ -274,6 +276,18 @@ export async function run(opts = {}) {
     },
   };
 
+  if (
+    !$counters
+    && 'webcontainer' !== context.cpu.name
+    && ['bun', 'node', 'deno'].includes(context.runtime)
+    && ['arm64-darwin', 'aarch64-apple-darwin'].includes(context.arch)
+  ) {
+    try {
+      $counters = await import('@mitata/counters');
+      if (0 !== process.getuid()) throw ($counters = false, 1);
+    } catch { }
+  }
+
   const layout = COLLECTIONS.map(c => ({ name: c.name, types: c.types }));
 
   await formats[opts.format](context, opts, benchmarks, layout);
@@ -360,6 +374,7 @@ const formats = {
 
     for (const collection of COLLECTIONS) {
       const trials = [];
+      let prev_run_counters = false;
       if (!collection.trials.length) continue;
       const has_matches = collection.trials.some(trial => opts.filter.test(trial._name));
 
@@ -390,6 +405,9 @@ const formats = {
           const _h = !opts.colors || !trial._highlight ? x => x : x => $[trial._highlight] + x + $.reset;
 
           for (const r of bench.runs) {
+            if (prev_run_counters) print('');
+            prev_run_counters = !!r.stats.counters;
+
             if (r.error) {
               if (!opts.colors) print(`${_h($.str(r.name, k_legend).padEnd(k_legend))} error: ${r.error.message ?? r.error}`);
               else print(`${_h($.str(r.name, k_legend).padEnd(k_legend))} ${$.red + 'error:' + $.reset} ${r.error.message ?? r.error}`);
@@ -461,6 +479,41 @@ const formats = {
                 else l += $.gray + p99 + $.reset + ' ' + histogram[1];
 
                 print(l);
+
+                if (r.stats.counters) {
+                  l = '';
+
+                  const ipc = r.stats.counters.instructions.avg / r.stats.counters.cycles.avg;
+                  const stalls = 100 * r.stats.counters.cycles.stalls.avg / r.stats.counters.cycles.avg;
+                  const ldst = 100 * r.stats.counters.instructions.loads_and_stores.avg / r.stats.counters.instructions.avg;
+                  // const branches = 100 - Math.min(100, 100 * r.stats.counters.branches.mispredicted.avg / r.stats.counters.branches.avg);
+                  const cache = 100 - Math.min(100, 100 * (r.stats.counters.l1.miss_loads.avg + r.stats.counters.l1.miss_stores.avg) / r.stats.counters.instructions.loads_and_stores.avg);
+
+                  l += ' '.repeat(k_legend - 13);
+                  if (!opts.colors) l += $.amount(ipc).padStart(7) + ' ipc';
+                  else l += $.bold + $.green + $.amount(ipc).padStart(7) + $.reset + $.bold + ' ipc' + $.reset;
+
+                  if (!opts.colors) l += ' (' + stalls.toFixed(2).padStart(6) + '% stalls)';
+                  else l += $.gray + ' (' + $.reset + (12 > stalls ? $.green : (50 < stalls ? $.red : $.yellow)) + stalls.toFixed(2).padStart(6) + '%' + $.reset + ' stalls' + $.gray + ')' + $.reset;
+
+                  if (!opts.colors) l += ' ' + cache.toFixed(2).padStart(6) + '% L1 data cache';
+                  else l += ' ' + (50 > cache ? $.red : (84 < cache ? $.green : $.yellow)) + cache.toFixed(2).padStart(6) + '%' + $.reset + ' L1 data cache';
+
+                  print(l);
+
+                  l = '';
+                  l += ' '.repeat(8);
+                  if (opts.colors) l += $.gray;
+                  l += $.amount(r.stats.counters.cycles.avg).padStart(7) + ' cycles';
+                  l += ' ' + $.amount(r.stats.counters.instructions.avg).padStart(7) + ' instructions';
+                  l += ' ' + ldst.toFixed(2).padStart(6) + '%' + ' retired LD/ST (' + $.amount(r.stats.counters.instructions.loads_and_stores.avg).padStart(7) + ')';
+
+                  if (opts.colors) l += $.reset;
+
+                  // l += ' ' + (50 > branches ? $.red : (84 < branches ? $.green : $.yellow)) + branches.toFixed(2).padStart(6) + '%' + $.reset + ' branches';
+
+                  print(l);
+                }
               }
             }
           }
@@ -827,9 +880,15 @@ const formats = {
       }
     }
 
+    let nl = false;
+
+    if (false === $counters)
+      if (!opts.colors) (print(''), nl = true, print('! = run with sudo to enable hardware counters'));
+      else (print(''), nl = true, print($.yellow + '!' + $.reset + $.gray + ' = ' + $.reset + 'run with sudo to enable hardware counters'));
+
     if (optimized_out_warning)
-      if (!opts.colors) (print(''), print('! = benchmark was likely optimized out (dead code elimination)'));
-      else (print(''), print($.red + '!' + $.reset + $.gray + ' = ' + $.reset + 'benchmark was likely optimized out' + ' ' + $.gray + '(dead code elimination)' + $.reset));
+      if (!opts.colors) (nl ? null : print(''), print('! = benchmark was likely optimized out (dead code elimination)'));
+      else (nl ? null : print(''), print($.red + '!' + $.reset + $.gray + ' = ' + $.reset + 'benchmark was likely optimized out' + ' ' + $.gray + '(dead code elimination)' + $.reset));
   },
 };
 
@@ -868,12 +927,12 @@ export const $ = {
 
   amount(n) {
     if (n < 1e3) return n.toFixed(2); n /= 1000;
-    if (n < 1e3) return `${n.toFixed(2)} k`; n /= 1000;
-    if (n < 1e3) return `${n.toFixed(2)} M`; n /= 1000;
-    if (n < 1e3) return `${n.toFixed(2)} G`; n /= 1000;
-    if (n < 1e3) return `${n.toFixed(2)} T`; n /= 1000;
+    if (n < 1e3) return `${n.toFixed(2)}k`; n /= 1000;
+    if (n < 1e3) return `${n.toFixed(2)}M`; n /= 1000;
+    if (n < 1e3) return `${n.toFixed(2)}G`; n /= 1000;
+    if (n < 1e3) return `${n.toFixed(2)}T`; n /= 1000;
 
-    return `${n.toFixed(2)} P`;
+    return `${n.toFixed(2)}P`;
   },
 
   time(ns) {

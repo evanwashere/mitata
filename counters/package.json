@@ -1,7 +1,8 @@
 {
-  "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "license": "MIT",
+  "version": "0.0.1",
   "main": "src/lib.mjs",
-  "name": "@mitata/counters"
+  "name": "@mitata/counters",
+  "files": ["dist/*", "src/lib.mjs"]
 }
