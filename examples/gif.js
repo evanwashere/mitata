@@ -1,114 +1,70 @@
-import { run, bench, boxplot, summary, compact, barplot, group, lineplot } from '..';
+import { openSync, closeSync, readFileSync } from 'fs';
+import { run, bench, boxplot, summary, compact, barplot, group, lineplot, do_not_optimize } from '..';
 
-function bubbleSort(arr) {
-  const n = arr.length;
-  for (let i = 0; i < n - 1; i++) {
-    for (let j = 0; j < n - i - 1; j++) {
-      if (arr[j] > arr[j + 1]) {
-        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
-      }
-    }
-  }
-  return arr;
-}
+barplot(() => {
+  summary(() => {
+    bench('Date.now()', () => do_not_optimize(Date.now()));
+    bench('performance.now()', () => do_not_optimize(performance.now()));
+    bench('Bun.nanoseconds()', () => do_not_optimize(Bun.nanoseconds()));
+  });
+});
 
-function quickSort(arr) {
-  if (arr.length <= 1) return arr;
-  const pivot = arr[arr.length - 1];
-  const left = [], right = [];
-  for (let i = 0; i < arr.length - 1; i++) {
-    if (arr[i] < pivot) left.push(arr[i]);
-    else right.push(arr[i]);
-  }
-  return [...quickSort(left), pivot, ...quickSort(right)];
-}
-
-function generateRandomArray(size) {
-  return Array.from({ length: size }, () => Math.floor(Math.random() * 1000));
-}
-
-bench('1 + 1', () => 1 + 1);
-bench('Date.now()', () => Date.now());
-
-group(() => {
-  bench('deleting $keys from object', function* (state) {
+group('deleting n keys from object', () => {
+  bench('n=$keys', function* (state) {
     const keys = state.get('keys');
-  
+
     const obj = {};
     for (let i = 0; i < keys; i++) obj[i] = i;
-  
+
     yield {
       [0]() {
         return { ...obj };
       },
-  
+
       bench(arg0) {
         for (let i = 0; i < keys; i++) delete arg0[i];
       },
     };
-  }).args('keys', [1, 10, 100]);
+  }).args('keys', [1, 6, 12]);
 });
 
 boxplot(() => {
-  bench('Bubble Sort', () => {
-    const arr = generateRandomArray(1000);
-    bubbleSort(arr);
+  bench('Bun.mmap', function* () {
+    const fd = Bun.mmap('examples/gif.js');
+
+    yield () => fd.slice(0);
   });
 
-  bench('Quick Sort', () => {
-    const arr = generateRandomArray(1000);
-    quickSort(arr);
+  bench('fs.readFileSync', function* () {
+    const fd = openSync('examples/gif.js');
+
+    yield () => readFileSync(fd);
+
+    closeSync(fd);
   });
-
-  bench('Native Sort', () => {
-    const arr = generateRandomArray(1000);
-    arr.sort((a, b) => a - b);
-  });
-});
-
-compact(() => {
-  summary(() => {
-    bench('new Array($len)', function* (state) {
-      const len = state.get('len');
-
-      yield {
-        [0]() {
-          return len;
-        },
-
-        bench(len) {
-          return new Array(len);
-        },
-      }
-    }).range('len', 1, 1024);
-
-    bench('Array.from($len)', function* (state) {
-      const len = state.get('len');
-      yield () => Array.from({ length: len });
-    }).range('len', 1, 1024);
-  });
-});
-
-barplot(() => {
-  bench('1 + 1', () => 1 + 1);
-  bench('Date.now()', () => Date.now());
-});
-
-group(() => {
-  bench('1 + 1', () => 1 + 1);
-  bench('empty function', () => {});
 });
 
 lineplot(() => {
-  bench('Array.from($size)', function* (state) {
-    const size = state.get('size');
-    yield () => Array.from({ length: size }, (_, i) => i);
-  }).range('size', 1, 1024);
+  compact(() => {
+    bench('Array.from($size)', function* (state) {
+      const size = state.get('size');
+      yield () => Array.from({ length: size }, (_, o) => o);
+    }).range('size', 1, 512);
 
-  bench('new Array($size)', function* (state) {
-    const size = state.get('size');
-    yield () => new Array(size);
-  }).range('size', 1, 1024);
+    bench('new Array($size)', function* (state) {
+      const size = state.get('size');
+
+      yield () => {
+        const arr = new Array(size);
+        for (let o = 0, len = arr.length; o < len; o++) arr[o] = o;
+      }
+    }).range('size', 1, 512).highlight('green');
+  });
+});
+
+group('optimized out examples', () => {
+  bench('1 + 1', () => 1 + 1);
+  bench('empty function', () => { });
 });
 
 await run();

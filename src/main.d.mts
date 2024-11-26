@@ -62,6 +62,7 @@ interface k_options {
 
 // ---
 export function bench(fn: () => any): B;
+export function do_not_optimize(v: any): void;
 export function bench(name: string, fn: () => any): B;
 export function bench(gen: (state: k_state) => Gen): B;
 export function bench(iter: (state: k_iter & k_state) => any): B;

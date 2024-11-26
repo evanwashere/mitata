@@ -1,4 +1,4 @@
-export { measure } from './lib.mjs';
+export { measure, do_not_optimize } from './lib.mjs';
 import { kind, print, measure, k_min_cpu_time } from './lib.mjs';
 
 let FLAGS = 0;
@@ -406,7 +406,7 @@ const formats = {
 
           for (const r of bench.runs) {
             if (prev_run_counters) print('');
-            prev_run_counters = !!r.stats.counters;
+            prev_run_counters = !!r.stats?.counters;
 
             if (r.error) {
               if (!opts.colors) print(`${_h($.str(r.name, k_legend).padEnd(k_legend))} error: ${r.error.message ?? r.error}`);
@@ -422,6 +422,7 @@ const formats = {
 
               if (compact) {
                 let l = '';
+                prev_run_counters = false;
                 const avg = $.time(r.stats.avg).padStart(9);
                 const name = $.str(r.name, k_legend).padEnd(k_legend);
 
