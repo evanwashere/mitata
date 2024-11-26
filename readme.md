@@ -179,6 +179,25 @@ bench('deleting $keys from object', function* (state) {
 }).args('keys', [1, 10, 100]);
 ```
 
+## hardware counters
+*currently limited to macos apple silicon*
+
+By installing `@mitata/counters` package you can enable collection and displaying of hardware counters for benchmarks.
+
+```rust
+------------------------------------------- -------------------------------
+new Array(1024)              332.67 ns/iter 337.90 ns   █                  
+                    (295.63 ns … 507.93 ns) 455.66 ns ▂██▇▄▂▂▂▁▂▁▃▃▃▂▂▁▁▁▁▁
+                  2.41 ipc ( 48.66% stalls)  37.89% L1 data cache
+          1.11k cycles   2.69k instructions  33.09% retired LD/ST ( 888.96)
+
+new URL(google.com)          246.40 ns/iter 245.10 ns       █▃             
+                    (206.01 ns … 841.23 ns) 302.39 ns ▁▁▁▁▂███▇▃▂▂▂▂▂▂▂▁▁▁▁
+                  4.12 ipc (  1.05% stalls)  98.88% L1 data cache
+         856.49 cycles   3.53k instructions  28.65% retired LD/ST (  1.01k)
+```
+
+
 ## helpful warnings
 
 For those who love doing micro-benchmarks, mitata can automatically detect and inform you about optimization passes like dead code elimination without requiring any special engine flags.
