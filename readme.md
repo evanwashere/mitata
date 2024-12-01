@@ -180,7 +180,12 @@ bench('deleting $keys from object', function* (state) {
 ```
 
 ## hardware counters
-*currently limited to macos apple silicon*
+
+`bun add @mitata/counters`
+
+`npm install @mitata/counters`
+
+supported on: `macos (apple silicon) | linux (amd64, aarch64)`
 
 By installing `@mitata/counters` package you can enable collection and displaying of hardware counters for benchmarks.
 

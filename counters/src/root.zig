@@ -3,9 +3,67 @@ const napi = @import("napi.zig");
 const builtin = @import("builtin");
 
 const perf = struct {
+  // based on
+  // https://github.com/andrewrk/poop/blob/dc132ef51eeb44b363d222e6ccbb47c292453400/src/main.zig
+
   comptime {
     if (.linux != builtin.os.tag) @compileError("not linux");
   }
+
+  const posix = std.posix;
+  const linux = std.os.linux;
+  const fd_t = std.os.linux.fd_t;
+  const PERF = std.os.linux.PERF;
+
+  const Counters = struct {
+    len: usize,
+    fds: [32]fd_t = [1]fd_t{-1} ** 32,
+    events: [32]PERF.COUNT.HW = undefined,
+
+    pub fn deinit(self: *@This()) void {
+      for (self.fds[0..self.len]) |fd| posix.close(fd);
+    }
+
+    pub fn enable(self: *@This()) void {
+      _ = linux.ioctl(self.fds[0], PERF.EVENT_IOC.RESET, PERF.IOC_FLAG_GROUP);
+      _ = linux.ioctl(self.fds[0], PERF.EVENT_IOC.ENABLE, PERF.IOC_FLAG_GROUP);
+    }
+
+    pub fn disable(self: *@This()) void {
+      _ = linux.ioctl(self.fds[0], PERF.EVENT_IOC.DISABLE, PERF.IOC_FLAG_GROUP);
+    }
+
+    pub fn capture(self: *@This(), counters: []u64) !void {
+      for (self.fds[0..self.len], counters[0..self.len]) |fd, *counter| {
+        var v: usize = undefined;
+        const n = try posix.read(fd, std.mem.asBytes(&v));
+        counter.* = v; std.debug.assert(n == @sizeOf(usize));
+      }
+    }
+
+    pub fn init(e: []const PERF.COUNT.HW) !@This() {
+      var c = Counters { .len = e.len };
+
+      for (e, c.fds[0..e.len], c.events[0..e.len]) |config, *fd, *event| {
+        var attr = linux.perf_event_attr {
+          .type = PERF.TYPE.HARDWARE,
+          .config = @intFromEnum(config),
+
+          .flags = .{
+            .disabled = true,
+            .exclude_hv = true,
+            .exclude_kernel = true,
+          },
+        };
+
+        event.* = config;
+        fd.* = try posix.perf_event_open(&attr, 0, -1, c.fds[0], 0);
+        // std.debug.print("name: {s} fd: {d}\n", .{@tagName(config), fd.*});
+      }
+
+      return c;
+    }
+  };
 };
 
 const kperf = struct {
@@ -295,6 +353,149 @@ export fn napi_register_module_v1(renv: napi.napi_env, exports: napi.napi_value)
               _ = napi.napi_set_named_property(env, inner, "description", _description);
             }
           }
+        }
+
+        return obj;
+      }
+    };
+
+    const names = [_][:0]const u8{
+      "load",
+      "translate",
+      "init", "deinit",
+      "before", "after",
+    };
+
+    inline for (names) |name| {
+      var f: napi.napi_value = undefined;
+
+      if (@hasDecl(bindings, name)) {
+        defer _ = napi.napi_set_named_property(renv, exports, name, f);
+        _ = napi.napi_create_function(renv, name, 0, @field(bindings, name), null, &f);
+      }
+    }
+  }
+
+  if (.linux == builtin.os.tag) {
+    const bindings = struct {
+      var _counters: perf.Counters = undefined;
+      var max: [32]u64 = std.mem.zeroes([32]u64);
+      var min: [32]?u64 = std.mem.zeroes([32]?u64);
+      var slots: [3][32]u64 = std.mem.zeroes([3][32]u64);
+
+      const events = [_]perf.PERF.COUNT.HW {
+        .CPU_CYCLES,
+        .INSTRUCTIONS,
+        .CACHE_MISSES,
+        .BRANCH_MISSES,
+        .CACHE_REFERENCES,
+        // .BRANCH_INSTRUCTIONS,
+        // .STALLED_CYCLES_BACKEND,
+        // .STALLED_CYCLES_FRONTEND,
+      };
+
+      pub fn load(env: napi.napi_env, info: napi.napi_callback_info) callconv(.c) napi.napi_value {
+        _ = info;
+
+        _counters = perf.Counters.init(&events) catch |err| {
+          _ = napi.napi_throw_error(env, @errorName(err), @errorName(err)); return null;
+        };
+
+        var value: napi.napi_value = undefined;
+        _ = napi.napi_get_undefined(env, &value);
+
+        return value;
+      }
+
+      pub fn deinit(env: napi.napi_env, info: napi.napi_callback_info) callconv(.c) napi.napi_value {
+        _ = info;
+
+        _counters.disable();
+
+        var value: napi.napi_value = undefined;
+        _ = napi.napi_get_undefined(env, &value);
+
+        return value;
+      }
+
+      pub fn init(env: napi.napi_env, info: napi.napi_callback_info) callconv(.c) napi.napi_value {
+        _ = info;
+
+        max = std.mem.zeroes([32]u64);
+        min = std.mem.zeroes([32]?u64);
+        slots = std.mem.zeroes([3][32]u64);
+
+        _counters.enable();
+
+        var value: napi.napi_value = undefined;
+        _ = napi.napi_get_undefined(env, &value);
+
+        return value;
+      }
+
+      pub fn before(env: napi.napi_env, info: napi.napi_callback_info) callconv(.c) napi.napi_value {
+        _ = info;
+
+        _counters.capture(&slots[0]) catch |err| {
+          _ = napi.napi_throw_error(env, @errorName(err), @errorName(err)); return null;
+        };
+
+        var value: napi.napi_value = undefined;
+        _ = napi.napi_get_undefined(env, &value);
+
+        return value;
+      }
+
+      pub fn after(env: napi.napi_env, info: napi.napi_callback_info) callconv(.c) napi.napi_value {
+        _ = info;
+
+        _counters.capture(&slots[1]) catch |err| {
+          _ = napi.napi_throw_error(env, @errorName(err), @errorName(err)); return null;
+        };
+
+        for (
+          min[0.._counters.len],
+          max[0.._counters.len],
+          slots[0][0.._counters.len],
+          slots[1][0.._counters.len],
+          slots[2][0.._counters.len],
+        ) |*_min, *_max, bef, aft, *total| {
+          const diff = std.math.sub(u64, aft, bef) catch {
+            std.debug.print("aft: {d}, bef: {d}\n", .{aft, bef});
+            continue;
+          };
+
+          total.* += diff;
+          _max.* = @max(diff, _max.*);
+          _min.* = @min(diff, _min.* orelse std.math.maxInt(u64));
+        }
+
+        var value: napi.napi_value = undefined;
+        _ = napi.napi_get_undefined(env, &value);
+
+        return value;
+      }
+
+      pub fn translate(env: napi.napi_env, info: napi.napi_callback_info) callconv(.c) napi.napi_value {
+        _ = info;
+        var obj: napi.napi_value = undefined;
+        _ = napi.napi_create_object(env, &obj);
+
+        for (0.., events) |o, event| {
+          var _min: napi.napi_value = undefined;
+          var _max: napi.napi_value = undefined;
+          var inner: napi.napi_value = undefined;
+          var _total: napi.napi_value = undefined;
+
+          _ = napi.napi_create_object(env, &inner);
+          _ = napi.napi_create_double(env, @floatFromInt(max[o]), &_max);
+          _ = napi.napi_create_double(env, @floatFromInt(min[o].?), &_min);
+          _ = napi.napi_create_double(env, @floatFromInt(slots[2][o]), &_total);
+
+          _ = napi.napi_set_named_property(env, inner, "min", _min);
+          _ = napi.napi_set_named_property(env, inner, "max", _max);
+          _ = napi.napi_set_named_property(env, inner, "total", _total);
+          _ = napi.napi_set_named_property(env, obj, @tagName(event), inner);
         }
 
         return obj;
