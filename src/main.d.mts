@@ -40,6 +40,7 @@ interface stats {
   debug: string;
   ticks: number;
   samples: number[];
+  counters?: object;
   kind: 'fn' | 'iter' | 'yield';
   min: number; max: number; avg: number; p25: number;
   p50: number; p75: number; p99: number; p999: number;

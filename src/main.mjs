@@ -278,14 +278,24 @@ export async function run(opts = {}) {
 
   if (
     !$counters
-    && 'webcontainer' !== context.cpu.name
+    && context.arch?.includes?.('darwin')
+    && 'webcontainer' !== context.cpu?.name
     && ['bun', 'node', 'deno'].includes(context.runtime)
-    && ['arm64-darwin', 'aarch64-apple-darwin'].includes(context.arch)
   ) {
     try {
       $counters = await import('@mitata/counters');
       if (0 !== process.getuid()) throw ($counters = false, 1);
-    } catch { }
+    } catch {}
+  }
+
+  if (
+    !$counters
+    && context.arch?.includes?.('linux')
+    && 'webcontainer' !== context.cpu?.name
+    && ['bun', 'node', 'deno'].includes(context.runtime)
+  ) {
+    try { $counters = await import('@mitata/counters'); }
+    catch (err) { if (err?.message?.includes?.('PermissionDenied')) $counters = false; }
   }
 
   const layout = COLLECTIONS.map(c => ({ name: c.name, types: c.types }));
@@ -484,36 +494,69 @@ const formats = {
                 if (r.stats.counters) {
                   l = '';
 
-                  const ipc = r.stats.counters.instructions.avg / r.stats.counters.cycles.avg;
-                  const stalls = 100 * r.stats.counters.cycles.stalls.avg / r.stats.counters.cycles.avg;
-                  const ldst = 100 * r.stats.counters.instructions.loads_and_stores.avg / r.stats.counters.instructions.avg;
-                  // const branches = 100 - Math.min(100, 100 * r.stats.counters.branches.mispredicted.avg / r.stats.counters.branches.avg);
-                  const cache = 100 - Math.min(100, 100 * (r.stats.counters.l1.miss_loads.avg + r.stats.counters.l1.miss_stores.avg) / r.stats.counters.instructions.loads_and_stores.avg);
+                  if (ctx.arch.includes('linux')) {
+                    const _bmispred = r.stats.counters._bmispred.avg;
+                    const ipc = r.stats.counters.instructions.avg / r.stats.counters.cycles.avg;
+                    const cache = 100 - Math.min(100, 100 * r.stats.counters.cache.misses.avg / r.stats.counters.cache.avg);
 
-                  l += ' '.repeat(k_legend - 13);
-                  if (!opts.colors) l += $.amount(ipc).padStart(7) + ' ipc';
-                  else l += $.bold + $.green + $.amount(ipc).padStart(7) + $.reset + $.bold + ' ipc' + $.reset;
+                    l += ' '.repeat(k_legend - 12);
+                    if (!opts.colors) l += $.amount(ipc).padStart(7) + ' ipc';
+                    else l += $.bold + $.green + $.amount(ipc).padStart(7) + $.reset + $.bold + ' ipc' + $.reset;
 
-                  if (!opts.colors) l += ' (' + stalls.toFixed(2).padStart(6) + '% stalls)';
-                  else l += $.gray + ' (' + $.reset + (12 > stalls ? $.green : (50 < stalls ? $.red : $.yellow)) + stalls.toFixed(2).padStart(6) + '%' + $.reset + ' stalls' + $.gray + ')' + $.reset;
+                    if (!opts.colors) l += ' (' + cache.toFixed(2).padStart(6) + '% cache)';
+                    else l += $.gray + ' (' + $.reset + (50 > cache ? $.red : (84 < cache ? $.green : $.yellow)) + cache.toFixed(2).padStart(6) + '%' + $.reset + ' cache' + $.gray + ')' + $.reset;
 
-                  if (!opts.colors) l += ' ' + cache.toFixed(2).padStart(6) + '% L1 data cache';
-                  else l += ' ' + (50 > cache ? $.red : (84 < cache ? $.green : $.yellow)) + cache.toFixed(2).padStart(6) + '%' + $.reset + ' L1 data cache';
+                    if (!opts.colors) l += ' ' + $.amount(_bmispred).padStart(7) + ' branch misses';
+                    else l += ' ' + $.green + $.amount(_bmispred).padStart(7) + $.reset + ' branch misses';
 
-                  print(l);
+                    print(l);
 
-                  l = '';
-                  l += ' '.repeat(8);
-                  if (opts.colors) l += $.gray;
-                  l += $.amount(r.stats.counters.cycles.avg).padStart(7) + ' cycles';
-                  l += ' ' + $.amount(r.stats.counters.instructions.avg).padStart(7) + ' instructions';
-                  l += ' ' + ldst.toFixed(2).padStart(6) + '%' + ' retired LD/ST (' + $.amount(r.stats.counters.instructions.loads_and_stores.avg).padStart(7) + ')';
+                    l = '';
+                    l += ' '.repeat(8);
+                    if (opts.colors) l += $.gray;
+                    l += $.amount(r.stats.counters.cycles.avg).padStart(7) + ' cycles';
+                    l += ' ' + $.amount(r.stats.counters.instructions.avg).padStart(7) + ' instructions';
 
-                  if (opts.colors) l += $.reset;
+                    l += ' ' + $.amount(r.stats.counters.cache.avg).padStart(7) + ' c-refs';
+                    l += ' ' + $.amount(r.stats.counters.cache.misses.avg).padStart(7) + ' c-misses';
 
-                  // l += ' ' + (50 > branches ? $.red : (84 < branches ? $.green : $.yellow)) + branches.toFixed(2).padStart(6) + '%' + $.reset + ' branches';
+                    if (opts.colors) l += $.reset;
 
-                  print(l);
+                    print(l);
+                  }
+
+                  if (ctx.arch.includes('darwin')) {
+                    const ipc = r.stats.counters.instructions.avg / r.stats.counters.cycles.avg;
+                    const stalls = 100 * r.stats.counters.cycles.stalls.avg / r.stats.counters.cycles.avg;
+                    const ldst = 100 * r.stats.counters.instructions.loads_and_stores.avg / r.stats.counters.instructions.avg;
+                    // const branches = 100 - Math.min(100, 100 * r.stats.counters.branches.mispredicted.avg / r.stats.counters.branches.avg);
+                    const cache = 100 - Math.min(100, 100 * (r.stats.counters.l1.miss_loads.avg + r.stats.counters.l1.miss_stores.avg) / r.stats.counters.instructions.loads_and_stores.avg);
+
+                    l += ' '.repeat(k_legend - 13);
+                    if (!opts.colors) l += $.amount(ipc).padStart(7) + ' ipc';
+                    else l += $.bold + $.green + $.amount(ipc).padStart(7) + $.reset + $.bold + ' ipc' + $.reset;
+
+                    if (!opts.colors) l += ' (' + stalls.toFixed(2).padStart(6) + '% stalls)';
+                    else l += $.gray + ' (' + $.reset + (12 > stalls ? $.green : (50 < stalls ? $.red : $.yellow)) + stalls.toFixed(2).padStart(6) + '%' + $.reset + ' stalls' + $.gray + ')' + $.reset;
+
+                    if (!opts.colors) l += ' ' + cache.toFixed(2).padStart(6) + '% L1 data cache';
+                    else l += ' ' + (50 > cache ? $.red : (84 < cache ? $.green : $.yellow)) + cache.toFixed(2).padStart(6) + '%' + $.reset + ' L1 data cache';
+
+                    print(l);
+
+                    l = '';
+                    l += ' '.repeat(8);
+                    if (opts.colors) l += $.gray;
+                    l += $.amount(r.stats.counters.cycles.avg).padStart(7) + ' cycles';
+                    l += ' ' + $.amount(r.stats.counters.instructions.avg).padStart(7) + ' instructions';
+                    l += ' ' + ldst.toFixed(2).padStart(6) + '%' + ' retired LD/ST (' + $.amount(r.stats.counters.instructions.loads_and_stores.avg).padStart(7) + ')';
+
+                    if (opts.colors) l += $.reset;
+
+                    // l += ' ' + (50 > branches ? $.red : (84 < branches ? $.green : $.yellow)) + branches.toFixed(2).padStart(6) + '%' + $.reset + ' branches';
+
+                    print(l);
+                  }
                 }
               }
             }

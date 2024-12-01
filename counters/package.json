@@ -1,8 +1,9 @@
 {
   "type": "module",
   "license": "MIT",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "main": "src/lib.mjs",
   "name": "@mitata/counters",
-  "files": ["dist/*", "src/lib.mjs"]
+  "files": ["dist/*", "src/lib.mjs"],
+  "description": "hardware counters extension for mitata"
 }

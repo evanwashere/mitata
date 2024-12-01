@@ -70,4 +70,53 @@ export function translate(batch = 1, samples = 1) {
       instructions,
     };
   }
+
+  if ('linux' === os.platform()) {
+    const events = lib.translate();
+
+    const cycles = {
+      min: events.CPU_CYCLES.min / batch,
+      max: events.CPU_CYCLES.max / batch,
+      avg: events.CPU_CYCLES.total / batch / samples,
+    };
+
+    const instructions = {
+      min: events.INSTRUCTIONS.min / batch,
+      max: events.INSTRUCTIONS.max / batch,
+      avg: events.INSTRUCTIONS.total / batch / samples,
+    };
+
+    const _bmispred = !events.BRANCH_MISSES ? null : {
+      min: events.BRANCH_MISSES.min / batch,
+      max: events.BRANCH_MISSES.max / batch,
+      avg: events.BRANCH_MISSES.total / batch / samples,
+    };
+
+    const branches = !events.BRANCH_INSTRUCTIONS ? null : {
+      mispredicted: _bmispred,
+      min: events.BRANCH_INSTRUCTIONS.min / batch,
+      max: events.BRANCH_INSTRUCTIONS.max / batch,
+      avg: events.BRANCH_INSTRUCTIONS.total / batch / samples,
+    };
+
+    const cache = !events.CACHE_REFERENCES ? null : {
+      min: events.CACHE_REFERENCES.min / batch,
+      max: events.CACHE_REFERENCES.max / batch,
+      avg: events.CACHE_REFERENCES.total / batch / samples,
+
+      misses: !events.CACHE_MISSES ? null : {
+        min: events.CACHE_MISSES.min / batch,
+        max: events.CACHE_MISSES.max / batch,
+        avg: events.CACHE_MISSES.total / batch / samples,
+      },
+    };
+
+    return {
+      cache,
+      cycles,
+      branches,
+      _bmispred,
+      instructions,
+    };
+  }
 }
