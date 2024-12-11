@@ -3,7 +3,7 @@
 <br />
 
 <div align="center">
-  <img width=68% src="https://cdn.evan.lol/mitata1.19_readme.gif"></img>
+  <img width=68% src="https://raw.githubusercontent.com/evanwashere/mitata/master/.github/readme.gif"></img>
 </div>
 
 <br />
@@ -43,7 +43,7 @@ function fibonacci(n) {
 bench('fibonacci(40)', () => fibonacci(40));
 
 boxplot(() => {
-  bench('new Array($size)', function* (state) {
+  bench('Array.from($size)', function* (state) {
     const size = state.get('size');
     yield () => Array.from({ length: size });
   }).range('size', 1, 1024);
@@ -114,7 +114,7 @@ bench('lots of allocations', () => {
 
 ## universal compatibility
 
-Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
+Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L43) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
 
 ### how to use mitata with engine CLIs like d8, jsc, graaljs, spidermonkey
 
@@ -172,8 +172,8 @@ bench('deleting $keys from object', function* (state) {
       return { ...obj };
     },
 
-    bench(arg0) {
-      for (let i = 0; i < keys; i++) delete arg0[i];
+    bench(p0) {
+      for (let i = 0; i < keys; i++) delete p0[i];
     },
   };
 }).args('keys', [1, 10, 100]);
@@ -350,7 +350,7 @@ noop                     93.09 ps/iter  91.55 ps                █      !
 5.30 ns/iter - https://npmjs.com/benchmark
 noop x 188,640,251 ops/sec ±5.71% (73 runs sampled)
 
-36.62 ns/iter - https://npmjs.com/tinybench
+36.62 ns/iter - vitest bench / https://npmjs.com/tinybench
 ┌─────────┬───────────┬──────────────┬───────────────────┬──────────┬──────────┐
 │ (index) │ Task Name │ ops/sec      │ Average Time (ns) │ Margin   │ Samples  │
 ├─────────┼───────────┼──────────────┼───────────────────┼──────────┼──────────┤
