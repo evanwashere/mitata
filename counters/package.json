@@ -1,7 +1,7 @@
 {
   "type": "module",
   "license": "MIT",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "src/lib.mjs",
   "name": "@mitata/counters",
   "files": ["dist/*", "src/lib.mjs"],

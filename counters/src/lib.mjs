@@ -1,7 +1,49 @@
 import os from 'node:os';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 const require = createRequire(import.meta.url);
 const lib = require(`../dist/${os.arch()}-${os.platform()}.node`); lib.load();
+
+if ('darwin' === os.platform()) {
+  const cwd = import.meta.url.replace('file://', '').replace('/lib.mjs', '');
+
+  const paths = [
+    'xctrace',
+    '/Applications/Xcode.app/Contents/Developer/usr/bin/xctrace',
+    '/Applications/Xcode-beta.app/Contents/Developer/usr/bin/xctrace',
+  ];
+
+  const args = [
+    'record',
+    '--output', '/tmp',
+    '--template', '../dist/l1cache.template',
+    '--launch', '--', '/bin/echo', 'cpu counters',
+  ];
+
+  for (const path of paths) {
+    try {
+      if (globalThis.Bun) {
+        const r = Bun.spawnSync([path, ...args], {
+          cwd,
+          stdin: null,
+          stdout: null,
+          stderr: null,
+        });
+
+        if (r.success) break;
+      }
+
+      else {
+        const r = spawnSync(path, args, {
+          cwd,
+          stdio: 'ignore',
+        });
+
+        if (0 === r.status) break;
+      }
+    } catch {}
+  }
+}
 
 export function init() { lib.init(); }
 export function deinit() { lib.deinit(); }
