@@ -285,7 +285,7 @@ export async function run(opts = {}) {
     try {
       $counters = await import('@mitata/counters');
       if (0 !== process.getuid()) throw ($counters = false, 1);
-    } catch {}
+    } catch { }
   }
 
   if (

@@ -3,7 +3,7 @@
 <br />
 
 <div align="center">
-  <img width=68% src="https://cdn.evan.lol/mitata1.19_readme.gif"></img>
+  <img width=68% src="https://raw.githubusercontent.com/evanwashere/mitata/master/.github/readme.gif"></img>
 </div>
 
 <br />
@@ -43,7 +43,7 @@ function fibonacci(n) {
 bench('fibonacci(40)', () => fibonacci(40));
 
 boxplot(() => {
-  bench('new Array($size)', function* (state) {
+  bench('Array.from($size)', function* (state) {
     const size = state.get('size');
     yield () => Array.from({ length: size });
   }).range('size', 1, 1024);
@@ -114,7 +114,7 @@ bench('lots of allocations', () => {
 
 ## universal compatibility
 
-Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L30) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
+Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L43) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
 
 ### how to use mitata with engine CLIs like d8, jsc, graaljs, spidermonkey
 
@@ -172,8 +172,8 @@ bench('deleting $keys from object', function* (state) {
       return { ...obj };
     },
 
-    bench(arg0) {
-      for (let i = 0; i < keys; i++) delete arg0[i];
+    bench(p0) {
+      for (let i = 0; i < keys; i++) delete p0[i];
     },
   };
 }).args('keys', [1, 10, 100]);
@@ -186,6 +186,10 @@ bench('deleting $keys from object', function* (state) {
 `npm install @mitata/counters`
 
 supported on: `macos (apple silicon) | linux (amd64, aarch64)`
+
+macos:
+- Xcode must be installed for complete cpu counters support
+- Instruments.app (CPU Counters) has to be closed during benchmarking
 
 By installing `@mitata/counters` package you can enable collection and displaying of hardware counters for benchmarks.
 
@@ -329,81 +333,99 @@ const trial = await b.run();
 
 ## accuracy down to picoseconds
 
-mitata pushes the limits of javascript with jit-generated zero-overhead measurement loops to provide high-resolution timings. This allows providing features like cpu clock frequency and dead code detection without requiring access outside the js sandbox.
+By leveraging the power of javascript JIT compilation, mitata is able to generate zero-overhead measurement loops that provide picoseconds precision in timing measurements. These loops are so precise that they can even be reused to provide additional features like CPU clock frequency estimation and dead code elimination detection, all while staying inside javascript vm sandbox.
+
+With [computed parameters](#computed-parameters) and [garbage collection tuning](#automatic-garbage-collection), you can tap into mitata's code generation capabilities to further refine the accuracy of your benchmarks. Using computed parameters ensures that parameters computation is moved outside the benchmark, thereby preventing the javascript JIT from performing loop invariant code motion optimization.
 
 ```rust
-clk: ~3.13 GHz
+// node --expose-gc --allow-natives-syntax tools/compare.mjs
+clk: ~2.71 GHz
 cpu: Apple M2 Pro
-runtime: node 22.8.0 (arm64-darwin)
+runtime: node 23.3.0 (arm64-darwin)
 
-benchmark              avg (min … max) p75   p99    (min … top 1%)
--------------------------------------- -------------------------------
-noop                     93.09 ps/iter  91.55 ps                █      !
-                 (61.04 ps … 20.30 ns) 101.81 ps ▁▁▁▁▁▁▁▁▁▁▂▁▁▁▁█▁▁▁▁▂
+benchmark                   avg (min … max) p75   p99    (min … top 1%)
+------------------------------------------- -------------------------------
+a / b                          4.59 ns/iter   4.44 ns █                    
+                       (4.33 ns … 25.86 ns)   6.91 ns ██▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+                  6.70 ipc (  2.17% stalls)    NaN% L1 data cache
+          16.80 cycles  112.52 instructions   0.00% retired LD/ST (   0.00)
 
-! = benchmark was likely optimized out (dead code elimination)
+a / b (computed)               4.23 ns/iter   4.10 ns ▇█                   
+                       (3.88 ns … 30.03 ns)   7.26 ns ██▅▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+                  6.40 ipc (  2.10% stalls)    NaN% L1 data cache
+          15.70 cycles  100.53 instructions   0.00% retired LD/ST (   0.00)
+4.59 ns/iter - https://npmjs.com/mitata
 
 // vs other libraries
 
-16041.00 ns/iter - node:perf_hooks (performance.timerify)
+a / b x 90,954,882 ops/sec ±2.13% (92 runs sampled)
+10.99 ns/iter - https://npmjs.com/benchmark
 
-5.30 ns/iter - https://npmjs.com/benchmark
-noop x 188,640,251 ops/sec ±5.71% (73 runs sampled)
+┌─────────┬───────────┬──────────────────────┬─────────────────────┬────────────────────────────┬───────────────────────────┬──────────┐
+│ (index) │ Task name │ Latency average (ns) │ Latency median (ns) │ Throughput average (ops/s) │ Throughput median (ops/s) │ Samples  │
+├─────────┼───────────┼──────────────────────┼─────────────────────┼────────────────────────────┼───────────────────────────┼──────────┤
+│ 0       │ 'a / b'   │ '27.71 ± 0.09%'      │ '41.00'             │ '28239766 ± 0.01%'         │ '24390243'                │ 36092096 │
+└─────────┴───────────┴──────────────────────┴─────────────────────┴────────────────────────────┴───────────────────────────┴──────────┘
+27.71 ns/iter - vitest bench / https://npmjs.com/tinybench
 
-36.62 ns/iter - https://npmjs.com/tinybench
-┌─────────┬───────────┬──────────────┬───────────────────┬──────────┬──────────┐
-│ (index) │ Task Name │ ops/sec      │ Average Time (ns) │ Margin   │ Samples  │
-├─────────┼───────────┼──────────────┼───────────────────┼──────────┼──────────┤
-│ 0       │ 'noop'    │ '27,308,739' │ 36.61831406333669 │ '±0.14%' │ 13654370 │
-└─────────┴───────────┴──────────────┴───────────────────┴──────────┴──────────┘
+a / b x 86,937,932 ops/sec (11 runs sampled) v8-never-optimize=true min..max=(11.32ns...11.62ns)
+11.51 ns/iter - https://npmjs.com/bench-node
 
-156.5685 ns/iter - https://npmjs.com/cronometro
-╔══════════════╤═════════╤═══════════════════╤═══════════╗
-║ Slower tests │ Samples │            Result │ Tolerance ║
-╟──────────────┼─────────┼───────────────────┼───────────╢
-║ Fastest test │ Samples │            Result │ Tolerance ║
-╟──────────────┼─────────┼───────────────────┼───────────╢
-║ noop         │   10000 │ 6386980.78 op/sec │  ± 1.85 % ║
-╚══════════════╧═════════╧═══════════════════╧═══════════╝
+╔══════════════╤═════════╤════════════════════╤═══════════╗
+║ Slower tests │ Samples │             Result │ Tolerance ║
+╟──────────────┼─────────┼────────────────────┼───────────╢
+║ Fastest test │ Samples │             Result │ Tolerance ║
+╟──────────────┼─────────┼────────────────────┼───────────╢
+║ a / b        │   10000 │ 14449822.99 op/sec │  ± 4.04 % ║
+╚══════════════╧═════════╧════════════════════╧═══════════╝
+69.20 ns/iter - https://npmjs.com/cronometro
 ```
 
 <details>
 <summary>same test with v8 jit compiler disabled:</summary>
 
 ```rust
+// node --expose-gc --allow-natives-syntax --jitless tools/compare.mjs
 clk: ~0.06 GHz
 cpu: Apple M2 Pro
-runtime: node 22.8.0 (arm64-darwin)
+runtime: node 23.3.0 (arm64-darwin)
 
-benchmark              avg (min … max) p75   p99    (min … top 1%)
--------------------------------------- -------------------------------
-noop                     14.69 ns/iter  15.09 ns      ▃▅▇▇▇█▅▄▂        !
-                 (13.33 ns … 19.69 ns)  16.24 ns ▁▄▅▇███████████▆▅▄▃▂▂
+benchmark                   avg (min … max) p75   p99    (min … top 1%)
+------------------------------------------- -------------------------------
+a / b                         74.52 ns/iter  75.53 ns █                    
+                     (71.96 ns … 104.94 ns)  92.01 ns █▅▇▅▅▃▃▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+                  5.78 ipc (  0.51% stalls)    NaN% L1 data cache
+         261.51 cycles   1.51k instructions   0.00% retired LD/ST (   0.00)
 
-! = benchmark was likely optimized out (dead code elimination)
+a / b (computed)              56.05 ns/iter  57.20 ns █                    
+                      (53.62 ns … 84.69 ns)  73.21 ns █▅▆▅▅▃▃▂▂▁▁▁▁▁▁▁▁▁▁▁▁
+                  5.65 ipc (  0.59% stalls)    NaN% L1 data cache
+         197.74 cycles   1.12k instructions   0.00% retired LD/ST (   0.00)
+74.52 ns/iter - https://npmjs.com/mitata
 
 // vs other libraries
 
-17500.00 ns/iter - node:perf_hooks (performance.timerify)
+a / b x 11,232,032 ops/sec ±0.50% (99 runs sampled)
+89.03 ns/iter - https://npmjs.com/benchmark
 
-23.28 ns/iter - https://npmjs.com/benchmark
-noop x 42,952,144 ops/sec ±0.87% (98 runs sampled)
+┌─────────┬───────────┬──────────────────────┬─────────────────────┬────────────────────────────┬───────────────────────────┬─────────┐
+│ (index) │ Task name │ Latency average (ns) │ Latency median (ns) │ Throughput average (ops/s) │ Throughput median (ops/s) │ Samples │
+├─────────┼───────────┼──────────────────────┼─────────────────────┼────────────────────────────┼───────────────────────────┼─────────┤
+│ 0       │ 'a / b'   │ '215.53 ± 0.08%'     │ '208.00'            │ '4786095 ± 0.01%'          │ '4807692'                 │ 4639738 │
+└─────────┴───────────┴──────────────────────┴─────────────────────┴────────────────────────────┴───────────────────────────┴─────────┘
+215.53 ns/iter - vitest bench / https://npmjs.com/tinybench
 
-184.92 ns/iter - https://npmjs.com/tinybench
-┌─────────┬───────────┬─────────────┬────────────────────┬──────────┬─────────┐
-│ (index) │ Task Name │ ops/sec     │ Average Time (ns)  │ Margin   │ Samples │
-├─────────┼───────────┼─────────────┼────────────────────┼──────────┼─────────┤
-│ 0       │ 'noop'    │ '5,407,742' │ 184.92003948393378 │ '±0.02%' │ 2703872 │
-└─────────┴───────────┴─────────────┴────────────────────┴──────────┴─────────┘
+a / b x 10,311,999 ops/sec (11 runs sampled) v8-never-optimize=true min..max=(95.66ns...97.51ns)
+96.86 ns/iter - https://npmjs.com/bench-node
 
-659.9353333333333 ns/iter - https://npmjs.com/cronometro
 ╔══════════════╤═════════╤═══════════════════╤═══════════╗
 ║ Slower tests │ Samples │            Result │ Tolerance ║
 ╟──────────────┼─────────┼───────────────────┼───────────╢
 ║ Fastest test │ Samples │            Result │ Tolerance ║
 ╟──────────────┼─────────┼───────────────────┼───────────╢
-║ noop         │    1500 │ 1515299.98 op/sec │  ± 0.72 % ║
+║ a / b        │    2000 │ 4664908.00 op/sec │  ± 0.94 % ║
 ╚══════════════╧═════════╧═══════════════════╧═══════════╝
+214.37 ns/iter - https://npmjs.com/cronometro
 ```
 </details>
 
