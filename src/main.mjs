@@ -179,18 +179,20 @@ const _c = (f, t, name = null) => {
 // ------ runtime ------
 
 function colors() {
-  return globalThis.process?.env?.FORCE_COLOR
+  return globalThis.tjs?.env?.FORCE_COLOR || globalThis.process?.env?.FORCE_COLOR
     || (
       !globalThis.Deno?.noColor
+      && !globalThis.tjs?.env?.NO_COLOR
       && !globalThis.process?.env?.NO_COLOR
       && !globalThis.process?.env?.NODE_DISABLE_COLORS
     );
 }
 
 async function cpu() {
-  if (globalThis.process?.versions?.webcontainer) return 'webcontainer';
+  if (globalThis.process?.versions?.webcontainer) return null;
   try { let n; if (n = require('os')?.cpus?.()?.[0]?.model) return n; } catch { }
   try { let n; if (n = require('node:os')?.cpus?.()?.[0]?.model) return n; } catch { }
+  try { let n; if (n = globalThis.tjs?.system?.cpus?.[0]?.model) return n; } catch { }
   try { let n; if (n = (await import('node:os'))?.cpus?.()?.[0]?.model) return n; } catch { }
 
   return null;
@@ -200,9 +202,12 @@ function version() {
   return ({
     v8: () => globalThis.version?.(),
     bun: () => globalThis.Bun?.version,
+    'txiki.js': () => globalThis.tjs?.version,
     deno: () => globalThis.Deno?.version?.deno,
+    llrt: () => globalThis.process?.versions?.llrt,
     node: () => globalThis.process?.versions?.node,
     graaljs: () => globalThis.Graal?.versionGraalVM,
+    webcontainer: () => globalThis.process?.versions?.webcontainer,
     'quickjs-ng': () => globalThis.navigator?.userAgent?.split?.('/')[1],
     hermes: () => globalThis.HermesInternal?.getRuntimeProperties?.()?.['OSS Release Version'],
   })[runtime()]?.() || null;
@@ -210,11 +215,17 @@ function version() {
 
 function runtime() {
   if (globalThis.d8) return 'v8';
+  if (globalThis.tjs) return 'txiki.js';
   if (globalThis.Graal) return 'graaljs';
+  if (globalThis.process?.versions?.llrt) return 'llrt';
+  if (globalThis.process?.versions?.webcontainer) return 'webcontainer';
   if (globalThis.inIon && globalThis.performance?.mozMemory) return 'spidermonkey';
+  if (globalThis.window && globalThis.netscape && globalThis.InternalError) return 'firefox';
+  if (globalThis.window && globalThis.navigator && Error.prepareStackTrace) return 'chromium';
   if (globalThis.navigator?.userAgent?.toLowerCase?.()?.includes?.('quickjs-ng')) return 'quickjs-ng';
   if (globalThis.$262 && globalThis.lockdown && globalThis.AsyncDisposableStack) return 'XS Moddable';
-  if (globalThis.$ && 'IsHTMLDDA' in globalThis.$ && (new Error().stack).startsWith('runtime@')) return 'jsc';
+  if (globalThis.$ && 'IsHTMLDDA' in globalThis.$ && (new Error().stack).includes('runtime@')) return 'jsc';
+  if (globalThis.window && globalThis.navigator && (new Error().stack).includes('runtime@')) return 'webkit';
 
   if (globalThis.os && globalThis.std) return 'quickjs';
   if (globalThis.Bun) return 'bun'; if (globalThis.Deno) return 'deno'; if (globalThis.HermesInternal) return 'hermes';
@@ -222,8 +233,17 @@ function runtime() {
 }
 
 async function arch() {
+  if (runtime() === 'webcontainer') return 'js + wasm';
   try { let n; if (n = Deno?.build?.target) return n; } catch { }
   try { const os = await import('node:os'); return `${os.arch()}-${os.platform()}`; } catch { }
+
+  if (globalThis.process?.arch && globalThis.process?.platform) {
+    return `${globalThis.process.arch}-${globalThis.process.platform}`;
+  }
+
+  if (runtime() === 'txiki.js') {
+    return `${globalThis.tjs.system?.arch}-${globalThis.tjs.system?.platform}`;
+  }
 
   if (runtime() === 'spidermonkey') {
     try {
@@ -279,7 +299,6 @@ export async function run(opts = {}) {
   if (
     !$counters
     && context.arch?.includes?.('darwin')
-    && 'webcontainer' !== context.cpu?.name
     && ['bun', 'node', 'deno'].includes(context.runtime)
   ) {
     try {
@@ -291,7 +310,6 @@ export async function run(opts = {}) {
   if (
     !$counters
     && context.arch?.includes?.('linux')
-    && 'webcontainer' !== context.cpu?.name
     && ['bun', 'node', 'deno'].includes(context.runtime)
   ) {
     try { $counters = await import('@mitata/counters'); }

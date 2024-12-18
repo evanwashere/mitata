@@ -1,4 +1,4 @@
-import { run, bench, boxplot } from 'mitata';
+import { run, bench, boxplot } from '../src/main.mjs';
 
 // https://lemire.me/blog/2023/12/12/measuring-the-size-of-the-cache-line-empirically/
 
