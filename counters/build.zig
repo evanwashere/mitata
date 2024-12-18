@@ -7,6 +7,7 @@ pub fn build(b: *std.Build) void {
   const lib = b.addSharedLibrary(.{
     .strip = true,
     .target = target,
+    .link_libc = true,
     .name = "counters",
     .optimize = optimize,
     .single_threaded = true,

@@ -237,6 +237,100 @@ export fn napi_register_module_v1(renv: napi.napi_env, exports: napi.napi_value)
         "L1D_CACHE_MISS_LD_NONSPEC", "L1D_CACHE_MISS_ST_NONSPEC",
       };
 
+      pub fn ffi_load() callconv(.c) i32 {
+        kperf.load() catch return -1; return 0;
+      }
+
+      pub fn ffi_deinit() callconv(.c) i32 {
+        _counters.deinit() catch return -1; return 0;
+      }
+
+      pub fn ffi_init() callconv(.c) i32 {
+        max = std.mem.zeroes([32]u64);
+        min = std.mem.zeroes([32]?u64);
+        slots = std.mem.zeroes([3][32]u64);
+
+        _counters = kperf.Counters.init(&events) catch return -1; return 0;
+      }
+
+
+      pub fn ffi_before() callconv(.c) i32 {
+        kperf.Counters.capture(&slots[0]) catch return -1; return 0;
+      }
+
+      pub fn ffi_after() callconv(.c) i32 {
+        kperf.Counters.capture(&slots[1]) catch return -1;
+
+        for (
+          min[0.._counters.config.counter_count],
+          max[0.._counters.config.counter_count],
+          slots[0][0.._counters.config.counter_count],
+          slots[1][0.._counters.config.counter_count],
+          slots[2][0.._counters.config.counter_count],
+        ) |*_min, *_max, bef, aft, *total| {
+          const diff = std.math.sub(u64, aft, bef) catch {
+            std.debug.print("aft: {d}, bef: {d}\n", .{aft, bef});
+            continue;
+          };
+
+          total.* += diff;
+          _max.* = @max(diff, _max.*);
+          _min.* = @min(diff, _min.* orelse std.math.maxInt(u64));
+        }
+
+        return 0;
+      }
+
+      var _ffi_translate_slice: []u8 = undefined;
+
+      pub fn ffi_translate_ptr() callconv(.c) [*]u8 {
+        return _ffi_translate_slice.ptr;
+      }
+
+      pub fn ffi_translate_len() callconv(.c) u32 {
+        return @intCast(_ffi_translate_slice.len);
+      }
+
+      pub fn ffi_translate_free() callconv(.c) void {
+        std.heap.c_allocator.free(_ffi_translate_slice);
+      }
+
+      pub fn ffi_translate() callconv(.c) i32 {
+        const allocator = std.heap.c_allocator;
+        var buf = std.ArrayList(u8).init(allocator);
+
+        defer buf.deinit();
+        const writer = buf.writer();
+        writer.writeAll("{") catch unreachable;
+
+        for (0.., events) |o, event| {
+          if (o != 0) writer.writeAll(",") catch unreachable;
+          writer.print("\"{s}\":", .{event}) catch unreachable;
+
+          writer.writeAll("{") catch unreachable;
+          writer.print("\"max\":{d},", .{max[_counters.remap[o]]}) catch unreachable;
+          writer.print("\"min\":{d},", .{min[_counters.remap[o]].?}) catch unreachable;
+          writer.print("\"total\":{d}", .{slots[2][_counters.remap[o]]}) catch unreachable;
+
+          writer.writeAll("}") catch unreachable;
+        }
+
+        writer.writeAll("}") catch unreachable;
+        _ffi_translate_slice = buf.toOwnedSlice() catch unreachable; return 0;
+      }
+
+      comptime {
+        @export(&ffi_load, .{ .linkage = .strong, .name = "libcounters_load" });
+        @export(&ffi_init, .{ .linkage = .strong, .name = "libcounters_init" });
+        @export(&ffi_after, .{ .linkage = .strong, .name = "libcounters_after" });
+        @export(&ffi_deinit, .{ .linkage = .strong, .name = "libcounters_deinit" });
+        @export(&ffi_before, .{ .linkage = .strong, .name = "libcounters_before" });
+        @export(&ffi_translate, .{ .linkage = .strong, .name = "libcounters_translate" });
+        @export(&ffi_translate_len, .{ .linkage = .strong, .name = "libcounters_translate_len" });
+        @export(&ffi_translate_ptr, .{ .linkage = .strong, .name = "libcounters_translate_ptr" });
+        @export(&ffi_translate_free, .{ .linkage = .strong, .name = "libcounters_translate_free" });
+      }
+
       pub fn load(env: napi.napi_env, info: napi.napi_callback_info) callconv(.c) napi.napi_value {
         _ = info;
 
@@ -393,6 +487,100 @@ export fn napi_register_module_v1(renv: napi.napi_env, exports: napi.napi_value)
         // .STALLED_CYCLES_BACKEND,
         // .STALLED_CYCLES_FRONTEND,
       };
+
+      pub fn ffi_load() callconv(.c) i32 {
+        _counters = perf.Counters.init(&events) catch return -1; return 0;
+      }
+
+      pub fn ffi_deinit() callconv(.c) i32 {
+        _counters.disable(); return 0;
+      }
+
+      pub fn ffi_init() callconv(.c) i32 {
+        max = std.mem.zeroes([32]u64);
+        min = std.mem.zeroes([32]?u64);
+        slots = std.mem.zeroes([3][32]u64);
+
+        _counters.enable(); return 0;
+      }
+
+
+      pub fn ffi_before() callconv(.c) i32 {
+        _counters.capture(&slots[0]) catch return -1; return 0;
+      }
+
+      pub fn ffi_after() callconv(.c) i32 {
+        _counters.capture(&slots[1]) catch return -1;
+
+        for (
+          min[0.._counters.len],
+          max[0.._counters.len],
+          slots[0][0.._counters.len],
+          slots[1][0.._counters.len],
+          slots[2][0.._counters.len],
+        ) |*_min, *_max, bef, aft, *total| {
+          const diff = std.math.sub(u64, aft, bef) catch {
+            std.debug.print("aft: {d}, bef: {d}\n", .{aft, bef});
+            continue;
+          };
+
+          total.* += diff;
+          _max.* = @max(diff, _max.*);
+          _min.* = @min(diff, _min.* orelse std.math.maxInt(u64));
+        }
+
+        return 0;
+      }
+
+      var _ffi_translate_slice: []u8 = undefined;
+
+      pub fn ffi_translate_ptr() callconv(.c) [*]u8 {
+        return _ffi_translate_slice.ptr;
+      }
+
+      pub fn ffi_translate_len() callconv(.c) u32 {
+        return @intCast(_ffi_translate_slice.len);
+      }
+
+      pub fn ffi_translate_free() callconv(.c) void {
+        std.heap.c_allocator.free(_ffi_translate_slice);
+      }
+
+      pub fn ffi_translate() callconv(.c) i32 {
+        const allocator = std.heap.c_allocator;
+        var buf = std.ArrayList(u8).init(allocator);
+
+        defer buf.deinit();
+        const writer = buf.writer();
+        writer.writeAll("{") catch unreachable;
+
+        for (0.., events) |o, event| {
+          if (o != 0) writer.writeAll(",") catch unreachable;
+          writer.print("\"{s}\":", .{@tagName(event)}) catch unreachable;
+
+          writer.writeAll("{") catch unreachable;
+          writer.print("\"max\":{d},", .{max[o]}) catch unreachable;
+          writer.print("\"min\":{d},", .{min[o].?}) catch unreachable;
+          writer.print("\"total\":{d}", .{slots[2][o]}) catch unreachable;
+
+          writer.writeAll("}") catch unreachable;
+        }
+
+        writer.writeAll("}") catch unreachable;
+        _ffi_translate_slice = buf.toOwnedSlice() catch unreachable; return 0;
+      }
+
+      comptime {
+        @export(&ffi_load, .{ .linkage = .strong, .name = "libcounters_load" });
+        @export(&ffi_init, .{ .linkage = .strong, .name = "libcounters_init" });
+        @export(&ffi_after, .{ .linkage = .strong, .name = "libcounters_after" });
+        @export(&ffi_deinit, .{ .linkage = .strong, .name = "libcounters_deinit" });
+        @export(&ffi_before, .{ .linkage = .strong, .name = "libcounters_before" });
+        @export(&ffi_translate, .{ .linkage = .strong, .name = "libcounters_translate" });
+        @export(&ffi_translate_len, .{ .linkage = .strong, .name = "libcounters_translate_len" });
+        @export(&ffi_translate_ptr, .{ .linkage = .strong, .name = "libcounters_translate_ptr" });
+        @export(&ffi_translate_free, .{ .linkage = .strong, .name = "libcounters_translate_free" });
+      }
 
       pub fn load(env: napi.napi_env, info: napi.napi_callback_info) callconv(.c) napi.napi_value {
         _ = info;
