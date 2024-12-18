@@ -1,8 +1,63 @@
 import os from 'node:os';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
-const require = createRequire(import.meta.url);
-const lib = require(`../dist/${os.arch()}-${os.platform()}.node`); lib.load();
+
+let lib = null;
+
+if (!globalThis.Bun) {
+  const require = createRequire(import.meta.url);
+  lib = require(`../dist/${os.arch()}-${os.platform()}.node`);
+} else {
+  const { dlopen, CString } = globalThis.Bun.FFI;
+  const path = new URL(`../dist/${os.arch()}-${os.platform()}.node`, import.meta.url);
+
+  const _lib = dlopen(path.pathname, {
+    libcounters_load: { args: [], returns: 'i32' },
+    libcounters_init: { args: [], returns: 'i32' },
+    libcounters_after: { args: [], returns: 'i32' },
+    libcounters_deinit: { args: [], returns: 'i32' },
+    libcounters_before: { args: [], returns: 'i32' },
+    libcounters_translate: { args: [], returns: 'i32' },
+
+    libcounters_translate_len: { args: [], returns: 'u32' },
+    libcounters_translate_ptr: { args: [], returns: 'ptr' },
+    libcounters_translate_free: { args: [], returns: 'void' },
+  });
+
+  lib = {
+    load() {
+      if (_lib.symbols.libcounters_load()) throw new Error('failed to load libcounters');
+    },
+
+    init() {
+      if (_lib.symbols.libcounters_init()) throw new Error('failed to init libcounters');
+    },
+
+    after() {
+      if (_lib.symbols.libcounters_after()) throw new Error('failed to after libcounters');
+    },
+
+    deinit() {
+      if (_lib.symbols.libcounters_deinit()) throw new Error('failed to deinit libcounters');
+    },
+
+    before() {
+      if (_lib.symbols.libcounters_before()) throw new Error('failed to before libcounters');
+    },
+
+    translate() {
+      if (_lib.symbols.libcounters_translate()) throw new Error('failed to translate libcounters');
+
+      const len = _lib.symbols.libcounters_translate_len();
+      const ptr = _lib.symbols.libcounters_translate_ptr();
+
+      const json = JSON.parse(new CString(ptr, 0, len));
+      return (_lib.symbols.libcounters_translate_free(), json);
+    },
+  };
+}
+
+lib.load();
 
 if ('darwin' === os.platform()) {
   const cwd = import.meta.url.replace('file://', '').replace('/lib.mjs', '');
@@ -41,7 +96,7 @@ if ('darwin' === os.platform()) {
 
         if (0 === r.status) break;
       }
-    } catch {}
+    } catch { }
   }
 }
 
