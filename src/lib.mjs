@@ -49,8 +49,10 @@ export const print = (() => {
 export const gc = (() => {
   try { return (Bun.gc(true), () => Bun.gc(true)); } catch { }
   try { return (globalThis.gc(), () => globalThis.gc()); } catch { }
+  try { return (globalThis.__gc(), () => globalThis.__gc()); } catch { }
   try { return (globalThis.std.gc(), () => globalThis.std.gc()); } catch { }
   try { return (globalThis.$262.gc(), () => globalThis.$262.gc()); } catch { }
+  try { return (globalThis.tjs.engine.gc.run(), () => globalThis.tjs.engine.gc.run()); } catch { }
   if (globalThis.Graal) return () => new Uint8Array(2 ** 29); return () => new Uint8Array(2 ** 30);
 })();
 
