@@ -46,6 +46,7 @@ interface stats {
 interface k_options {
   now?: () => number;
   inner_gc?: boolean;
+  concurrency?: number;
   min_samples?: number;
   max_samples?: number;
   min_cpu_time?: number;
@@ -58,6 +59,7 @@ interface k_options {
   gc?: boolean | (() => void);
 }
 
+export const k_concurrency: number;
 export const k_min_samples: number;
 export const k_max_samples: number;
 export const k_min_cpu_time: number;

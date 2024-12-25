@@ -19,6 +19,7 @@ export async function generator(gen, opts = {}) {
 
   const g = gen(ctx);
   const n = await g.next();
+
   if (n.done || 'fn' !== kind(n.value)) {
     if ('fn' !== kind(n.value?.bench, true)) throw new TypeError('expected benchmarkable yield from generator');
 
@@ -31,6 +32,7 @@ export async function generator(gen, opts = {}) {
     }
   }
 
+  opts.concurrency ??= n.value?.concurrency ?? opts.args?.concurrency;
   const stats = await fn('fn' === kind(n.value) ? n.value : n.value.bench, opts);
   if (!(await g.next()).done) throw new TypeError('expected generator to yield once');
 
@@ -111,6 +113,7 @@ export function kind(fn, _ = false) {
   ) return 'iter';
 }
 
+export const k_concurrency = 1;
 export const k_min_samples = 12;
 export const k_batch_unroll = 4;
 export const k_max_samples = 1e9;
@@ -127,6 +130,7 @@ function defaults(opts) {
   opts.params ??= {};
   opts.inner_gc ??= false;
   opts.$counters ??= false;
+  opts.concurrency ??= k_concurrency;
   opts.min_samples ??= k_min_samples;
   opts.max_samples ??= k_max_samples;
   opts.min_cpu_time ??= k_min_cpu_time;
@@ -175,8 +179,10 @@ export async function fn(fn, opts = {}) {
     let samples = new Array(2 ** 20);
 
     ${!params.length ? '' : Array.from({ length: params.length }, (_, o) => `
-      let param_${o} = ${!batch ? 'null' : `new Array(${opts.batch_samples})`};
-    `.trim()).join(' ')}
+      ${Array.from({ length: opts.concurrency }, (_, c) => `
+        let param_${o}_${c} = ${!batch ? 'null' : `new Array(${opts.batch_samples})`};
+      `.trim()).join(' ')}
+    `.trim()).join('\n')}
 
     ${!opts.gc ? '' : `$gc();`}
 
@@ -185,10 +191,18 @@ export async function fn(fn, opts = {}) {
 
       ${!params.length ? '' : `
         ${!batch ? `
-          ${Array.from({ length: params.length }, (_, o) => `if ((param_${o} = $params[${o}]()) instanceof Promise) param_${o} = await param_${o};`).join(' ')}
+          ${Array.from({ length: params.length }, (_, o) => `
+            ${Array.from({ length: opts.concurrency }, (_, c) => `
+              if ((param_${o}_${c} = $params[${o}]()) instanceof Promise) param_${o}_${c} = await param_${o}_${c};
+            `.trim()).join(' ')}
+          `.trim()).join('\n')}
         ` : `
           for (let o = 0; o < ${opts.batch_samples}; o++) {
-            ${Array.from({ length: params.length }, (_, o) => `if ((param_${o}[o] = $params[${o}]()) instanceof Promise) param_${o}[o] = await param_${o}[o];`).join(' ')}
+            ${Array.from({ length: params.length }, (_, o) => `
+              ${Array.from({ length: opts.concurrency }, (_, c) => `
+                if ((param_${o}_${c}[o] = $params[${o}]()) instanceof Promise) param_${o}_${c}[o] = await param_${o}_${c}[o];
+              `.trim()).join(' ')}
+            `.trim()).join('\n')}
           }
         `}
       `}
@@ -205,22 +219,30 @@ export async function fn(fn, opts = {}) {
       ${!opts.$counters ? '' : '$counters.before();'} const t0 = $now();
 
       ${!batch ? `
-        ${!async ? '' : 'await '} ${!params.length ? `
-          $fn();
-        ` : `
-          $fn(${Array.from({ length: params.length }, (_, o) => `param_${o}`).join(', ')});
-        `}
+        ${!async ? '' : (1 >= opts.concurrency ? '' : 'await Promise.all([')}
+          ${Array.from({ length: opts.concurrency }, (_, c) => `
+            ${!async ? '' : (1 < opts.concurrency ? '' : 'await ')} ${(!params.length ? `
+              $fn()
+            ` : `
+              $fn(${Array.from({ length: params.length }, (_, o) => `param_${o}_${c}`).join(', ')})
+            `).trim()}${!async ? ';' : (1 < opts.concurrency ? ',' : ';')}
+          `.trim()).join('\n')}
+        ${!async ? '' : (1 >= opts.concurrency ? '' : ']);')}
       ` : `
         for (let o = 0; o < ${(opts.batch_samples / opts.batch_unroll) | 0}; o++) {
-          ${!params.length ? `
-            ${new Array(opts.batch_unroll).fill(`${!async ? '' : 'await'} $fn();`).join(' ')}
-          ` : `
-            const param_offset = o * ${opts.batch_unroll};
+          ${!params.length ? '' : `const param_offset = o * ${opts.batch_unroll};`}
 
-            ${Array.from({ length: opts.batch_unroll }, (_, u) => `
-              ${!async ? '' : 'await'} $fn(${Array.from({ length: params.length }, (_, o) => `param_${o}[${u === 0 ? '' : `${u} + `}param_offset]`).join(', ')});
-            `.trim()).join('\n' + ' '.repeat(12))}
-          `}
+          ${Array.from({ length: opts.batch_unroll }, (_, u) => `
+            ${!async ? '' : (1 >= opts.concurrency ? '' : 'await Promise.all([')}
+              ${Array.from({ length: opts.concurrency }, (_, c) => `
+                ${!async ? '' : (1 < opts.concurrency ? '' : 'await ')} ${(!params.length ? `
+                  $fn()
+                ` : `
+                  $fn(${Array.from({ length: params.length }, (_, o) => `param_${o}_${c}[${u === 0 ? '' : `${u} + `}param_offset]`).join(', ')})
+                `).trim()}${!async ? ';' : (1 < opts.concurrency ? ',' : ';')}
+              `.trim()).join(' ')}
+            ${!async ? '' : (1 >= opts.concurrency ? '' : ']);')}
+          `.trim()).join('\n')}
         }
       `}
 

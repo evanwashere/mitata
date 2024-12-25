@@ -18,8 +18,10 @@ try mitata in browser with ai assistant at [https://bolt.new/~/mitata](https://b
 
 ## Recommendations
 
+- read [writing good benchmarks](#writing-good-benchmarks)
 - use dedicated hardware for running benchmarks
 - run with garbage collection enabled (e.g. `node --expose-gc ...`)
+- install optional [hardware counters](#hardware-counters) extension to see cpu stats like IPC (instructions per cycle)
 - make sure your runtime has high-resolution timers and other relevant options/permissions enabled
 
 ## Quick Start
@@ -114,7 +116,7 @@ bench('lots of allocations', () => {
 
 ## universal compatibility
 
-Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L43) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
+Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L45) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
 
 ### how to use mitata with engine CLIs like d8, jsc, graaljs, spidermonkey
 
@@ -179,6 +181,33 @@ bench('deleting $keys from object', function* (state) {
 }).args('keys', [1, 10, 100]);
 ```
 
+### concurrency
+
+`concurrency` option enables transparent concurrent execution of asynchronous benchmark, providing insights into:
+- scalability of async functions
+- potential bottlenecks in parallel code
+- performance under different levels of concurrency
+
+*(note: concurrent benchmarks may have higher variance due to scheduling, contention, event loop and async overhead)*
+
+```js
+bench('sleepAsync(1000) x $concurrency', function* () {
+  // concurrency inherited from arguments
+  yield async () => await sleepAsync(1000);
+}).args('concurrency', [1, 5, 10]);
+
+bench('sleepAsync(1000) x 5', function* () {
+  yield {
+    // concurrency is set manually
+    concurrency: 5,
+
+    async bench() {
+      await sleepAsync(1000);
+    },
+  };
+});
+```
+
 ## hardware counters
 
 `bun add @mitata/counters`
@@ -188,6 +217,7 @@ bench('deleting $keys from object', function* (state) {
 supported on: `macos (apple silicon) | linux (amd64, aarch64)`
 
 macos:
+- [Apple Silicon CPU optimization guide/handbook](https://developer.apple.com/documentation/apple-silicon/cpu-optimization-guide)
 - Xcode must be installed for complete cpu counters support
 - Instruments.app (CPU Counters) has to be closed during benchmarking
 
@@ -429,7 +459,87 @@ a / b x 10,311,999 ops/sec (11 runs sampled) v8-never-optimize=true min..max=(95
 ```
 </details>
 
+## writing good benchmarks
 
-## License
+Creating accurate and meaningful benchmarks requires careful attention to how modern JavaScript engines optimize code. This covers essential concepts and best practices to ensure your benchmarks measure actual performance characteristics rather than optimization artifacts.
 
-MIT © [Evan](https://github.com/evanwashere)
+### dead code elimination
+
+JIT can detect and eliminate code that has no observable effects. To ensure your benchmark code executes as intended, you must create observable side effects.
+
+```js
+import { do_not_optimize } from 'mitata';
+
+bench(function* () {
+  // ❌ Bad: jit can see that function has zero side-effects
+  yield () => new Array(0);
+  // will get optimized to:
+  /*
+    yield () => {};
+  */
+
+  // ✅ Good: do_not_optimize(value) emits code that causes side-effects
+  yield () => do_not_optimize(new Array(0));
+});
+```
+
+### garbage collection pressure
+
+For benchmarks involving significant memory allocations, controlling garbage collection frequency can improve results consistency.
+
+```js
+// ❌ Bad: unpredictable gc pauses
+bench(() => {
+  const bigArray = new Array(1000000);
+});
+
+// ✅ Good: gc before each (batch-)iteration
+bench(() => {
+  const bigArray = new Array(1000000);
+}).gc('inner'); // run gc before each iteration
+```
+
+### loop invariant code motion optimization
+
+JavaScript engines can optimize away repeated computations by hoisting them out of loops or caching results. Use computed parameters to prevent loop invariant code motion optimization.
+
+```js
+bench(function* (ctx) {
+  const str = 'abc';
+
+  // ❌ Bad: JIT sees that both str and 'c' search value are constants/comptime-known
+  yield () => str.includes('c');
+  // will get optimized to:
+  /*
+    yield () => true;
+  */
+
+  // ❌ Bad: JIT sees that computation doesn't depend on anything inside loop
+  const substr = ctx.get('substr');
+  yield () => str.includes(substr);
+  // will get optimized to:
+  /*
+    const $0 = str.includes(substr);
+    yield () => $0;
+  */
+
+  // ✅ Good: using computed parameters prevents jit from performing any loop optimizations
+  yield {
+    [0]() {
+      return str;
+    },
+
+    [1]() {
+      return substr;
+    },
+
+    bench(str, substr) {
+      return do_not_optimize(str.includes(substr));
+    },
+  };
+}).args('substr', ['c']);
+```
+
+## license
+
+MIT © [evanwashere](https://github.com/evanwashere)

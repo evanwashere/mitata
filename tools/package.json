@@ -5,6 +5,6 @@
     "tinybench": "^3.0.7",
     "bench-node": "^0.4.1",
     "cronometro": "^4.0.0",
-    "@mitata/counters": "^0.0.3"
+    "@mitata/counters": "latest"
   }
 }
