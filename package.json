@@ -2,7 +2,7 @@
   "name": "mitata",
   "type": "module",
   "license": "MIT",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "main": "src/main.mjs",
   "types": "src/main.d.mts",
   "files": ["src", "license", "readme.md"],

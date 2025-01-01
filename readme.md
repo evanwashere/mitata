@@ -90,9 +90,10 @@ int main() {
 ```js
 import { run } from 'mitata';
 
-await run({ format: 'mitata', colors: false }); // default format
+await run({ format: 'json' }) // output json
 await run({ filter: /new Array.*/ }) // only run benchmarks that match regex filter
 await run({ throw: true }); // will immediately throw instead of handling error quietly
+await run({ format: { mitata: { name: 'fixed' } } }); // benchmarks name column is fixed length
 
 // c++
 auto stats = runner.run({ .colors = true, .format = "json", .filter = std::regex(".*") });

@@ -79,6 +79,34 @@ export class B {
     throw new TypeError('invalid arguments');
   }
 
+  *_names() {
+    const args = Object.keys(this._args);
+    const kind = 0 === args.length ? 'static' : (1 === args.length ? 'args' : 'multi-args');
+
+    if (kind === 'static') {
+      yield this._name;
+    }
+
+    else {
+      const offsets = new Array(args.length).fill(0);
+      const runs = args.reduce((len, name) => len * this._args[name].length, 1);
+
+      for (let o = 0; o < runs; o++) {
+        {
+          const _args = {};
+          let _name = this._name;
+          for (let oo = 0; oo < args.length; oo++) _args[args[oo]] = this._args[args[oo]][offsets[oo]];
+          for (let oo = 0; oo < args.length; oo++) _name = _name.replace(`\$${args[oo]}`, _args[args[oo]]);
+
+          yield _name;
+        }
+
+        let offset = 0;
+        do { offsets[offset] = (1 + offsets[offset]) % this._args[args[offset]].length; } while (0 === offsets[offset++] && offset < args.length);
+      }
+    }
+  }
+
   async run(thrw = false) {
     const args = Object.keys(this._args);
     const kind = 0 === args.length ? 'static' : (1 === args.length ? 'args' : 'multi-args');
@@ -317,8 +345,8 @@ export async function run(opts = {}) {
   }
 
   const layout = COLLECTIONS.map(c => ({ name: c.name, types: c.types }));
-
-  await formats[opts.format](context, opts, benchmarks, layout);
+  const format = 'string' === typeof opts.format ? opts.format : Object.keys(opts.format)[0];
+  await formats[format](context, { ...opts, format: opts.format[format] }, benchmarks, layout);
   return (COLLECTIONS = [{ name: 0, types: [], trials: [] }], { layout, context, benchmarks });
 }
 
@@ -385,7 +413,25 @@ const formats = {
   },
 
   async mitata(ctx, opts, benchmarks) {
-    const k_legend = 28;
+    let k_legend = opts.format?.name ?? 'longest';
+
+    if ('fixed' === k_legend) k_legend = 28;
+
+    else if (k_legend === 'longest') {
+      k_legend = 28;
+
+      for (const collection of COLLECTIONS) {
+        for (const trial of collection.trials) {
+          if (opts.filter.test(trial._name)) {
+            for (const name of trial._names()) {
+              k_legend = Math.max(k_legend, name.length);
+            }
+          }
+        }
+      }
+    }
+
+    k_legend = Math.max(10, k_legend);
     if (!opts.colors) print(`clk: ~${ctx.cpu.freq.toFixed(2)} GHz`);
     else print($.gray + `clk: ~${ctx.cpu.freq.toFixed(2)} GHz` + $.reset);
 

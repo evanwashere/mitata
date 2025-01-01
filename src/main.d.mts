@@ -84,7 +84,7 @@ export function boxplot(f: () => Promise<any>): Promise<void>;
 export function barplot(f: () => Promise<any>): Promise<void>;
 export function group(name: string, f: () => Promise<any>): Promise<void>;
 
-export function run(opts?: { throw?: boolean; filter?: RegExp; colors?: boolean; format?: 'json' | 'quiet' | 'mitata' | 'markdown'; }): Promise<{ context: ctx, benchmarks: trial[] }>;
+export function run(opts?: { throw?: boolean; filter?: RegExp; colors?: boolean; format?: 'json' | 'quiet' | 'mitata' | 'markdown' | { mitata: { name?: number | 'fixed' | 'longest' } }; }): Promise<{ context: ctx, benchmarks: trial[] }>;
 
 export const flags: {
   compact: number;
