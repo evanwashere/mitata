@@ -431,7 +431,7 @@ const formats = {
       }
     }
 
-    k_legend = Math.max(10, k_legend);
+    k_legend = Math.max(20, k_legend);
     if (!opts.colors) print(`clk: ~${ctx.cpu.freq.toFixed(2)} GHz`);
     else print($.gray + `clk: ~${ctx.cpu.freq.toFixed(2)} GHz` + $.reset);
 
@@ -576,7 +576,8 @@ const formats = {
                     print(l);
 
                     l = '';
-                    l += ' '.repeat(8);
+                    l += ' '.repeat(k_legend - 20);
+
                     if (opts.colors) l += $.gray;
                     l += $.amount(r.stats.counters.cycles.avg).padStart(7) + ' cycles';
                     l += ' ' + $.amount(r.stats.counters.instructions.avg).padStart(7) + ' instructions';
@@ -609,7 +610,8 @@ const formats = {
                     print(l);
 
                     l = '';
-                    l += ' '.repeat(8);
+                    l += ' '.repeat(k_legend - 20);
+
                     if (opts.colors) l += $.gray;
                     l += $.amount(r.stats.counters.cycles.avg).padStart(7) + ' cycles';
                     l += ' ' + $.amount(r.stats.counters.instructions.avg).padStart(7) + ' instructions';
