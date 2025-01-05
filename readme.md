@@ -18,9 +18,9 @@ try mitata in browser with ai assistant at [https://bolt.new/~/mitata](https://b
 
 ## Recommendations
 
-- read [writing good benchmarks](#writing-good-benchmarks)
 - use dedicated hardware for running benchmarks
-- run with garbage collection enabled (e.g. `node --expose-gc ...`)
+- read [writing good benchmarks](#writing-good-benchmarks) & [LLVM benchmarking tips](https://llvm.org/docs/Benchmarking.html)
+- run with manual garbage collection enabled (e.g. `node --expose-gc ...`)
 - install optional [hardware counters](#hardware-counters) extension to see cpu stats like IPC (instructions per cycle)
 - make sure your runtime has high-resolution timers and other relevant options/permissions enabled
 
@@ -35,7 +35,7 @@ try mitata in browser with ai assistant at [https://bolt.new/~/mitata](https://b
 <td>
 
 ```js
-import { run, bench, boxplot } from 'mitata';
+import { run, bench, boxplot, summary } from 'mitata';
 
 function fibonacci(n) {
   if (n <= 1) return n;
@@ -45,10 +45,12 @@ function fibonacci(n) {
 bench('fibonacci(40)', () => fibonacci(40));
 
 boxplot(() => {
-  bench('Array.from($size)', function* (state) {
-    const size = state.get('size');
-    yield () => Array.from({ length: size });
-  }).range('size', 1, 1024);
+  summary(() => {
+    bench('Array.from($size)', function* (state) {
+      const size = state.get('size');
+      yield () => Array.from({ length: size });
+    }).range('size', 1, 1024);
+  });
 });
 
 await run();
@@ -103,7 +105,7 @@ auto stats = runner.run({ .colors = true, .format = "json", .filter = std::regex
 
 On runtimes that expose gc (e.g. bun, `node --expose-gc ...`), mitata will automatically run garbage collection before each benchmark.
 
-This behavior can be further customized via the `gc` function on each benchmark (you should only do this when absolutely necessary - big gc spikes):
+This behavior can be further customized via the `gc` function on each benchmark:
 
 ```js
 bench('lots of allocations', () => {
@@ -221,6 +223,7 @@ macos:
 - [Apple Silicon CPU optimization guide/handbook](https://developer.apple.com/documentation/apple-silicon/cpu-optimization-guide)
 - Xcode must be installed for complete cpu counters support
 - Instruments.app (CPU Counters) has to be closed during benchmarking
+- Corrupted install of Xcode/Command Line Tools can result in kernel panic (requires Xcode/Command Line Tools reinstall)
 
 By installing `@mitata/counters` package you can enable collection and displaying of hardware counters for benchmarks.
 
@@ -254,27 +257,25 @@ empty function          319.36 ps/iter 325.37 ps          █ ▅          !
 
 ## powerful visualizations right in your terminal
 
-with mitata’s ascii rendering capabilities, now you can easily visualize samples in barplots, boxplots, lineplots, histograms, and get clear summaries without any additional tools or dependencies.
+With mitata’s ascii rendering capabilities, now you can easily visualize samples in barplots, boxplots, lineplots, histograms, and get clear summaries without any additional tools or dependencies.
 
-```rust
--------------------------------------- -------------------------------
-1 + 1                   318.11 ps/iter 325.37 ps         ▇   █         !
-                (267.92 ps … 11.14 ns) 363.97 ps ▁▁▁▁▁▁▁▁█▁▁▁█▁▁▁▁▁▁▁▁
-Date.now()               27.69 ns/iter  27.48 ns  █                   
-                 (27.17 ns … 44.10 ns)  32.74 ns ▃█▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+```js
+import { summary, barplot, boxplot, lineplot } from 'mitata';
+
+// wrap bench() calls in visualization scope
+barplot(() => {
+  bench(...)
+});
 
                         ┌                                            ┐
                   1 + 1 ┤■ 318.11 ps 
              Date.now() ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 27.69 ns 
                         └                                            ┘
 
--------------------------------------- -------------------------------
-Bubble Sort               2.11 ms/iter   2.26 ms  █                   
-                   (1.78 ms … 6.93 ms)   4.77 ms ▃█▃▆▅▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-Quick Sort              159.60 µs/iter 154.50 µs  █                   
-               (133.13 µs … 792.21 µs) 573.00 µs ▅█▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-Native Sort              97.20 µs/iter  97.46 µs        ██            
-                (90.88 µs … 688.92 µs) 105.00 µs ▁▁▂▁▁▂▇██▇▃▃▃▃▃▂▂▂▁▁▁
+// scopes can be async
+await boxplot(async () => {
+  // ...
+});
 
                         ┌                                            ┐
                                         ╷┌─┬─┐                       ╷
@@ -289,17 +290,14 @@ Native Sort              97.20 µs/iter  97.46 µs        ██
                         └                                            ┘
                         90.88 µs            2.43 ms            4.77 ms
 
--------------------------------------- -------------------------------
-new Array(1)              3.57 ns/iter   3.20 ns    6.64 ns ▁█▄▂▁▁▁▁▁▁
-new Array(8)              5.21 ns/iter   4.31 ns    8.85 ns ▁█▄▁▁▁▁▁▁▁
-new Array(64)            17.94 ns/iter  13.40 ns  171.89 ns █▂▁▁▁▁▁▁▁▁
-new Array(512)          188.05 ns/iter 246.88 ns  441.81 ns █▃▃▃▃▂▂▁▁▁
-new Array(1024)         364.93 ns/iter 466.91 ns  600.34 ns █▄▁▁▁▅▅▃▂▁
-Array.from(1)            29.73 ns/iter  29.24 ns   36.88 ns ▁█▄▃▂▁▁▁▁▁
-Array.from(8)            33.96 ns/iter  32.99 ns   42.45 ns ▂█▄▂▂▁▁▁▁▁
-Array.from(64)          146.52 ns/iter 143.82 ns  310.93 ns █▅▁▁▁▁▁▁▁▁
-Array.from(512)           1.11 µs/iter   1.18 µs    1.34 µs ▃▅█▂▆▅▄▂▂▁
-Array.from(1024)          1.98 µs/iter   2.09 µs    2.40 µs ▃█▃▃▇▇▄▂▁▁
+// can combine multiple visualizations
+lineplot(() => {
+  summary(() => {
+    // ...
+  });
+
+  // bench() calls here wont be part of summary
+});
 
 summary
   new Array($len)
@@ -464,6 +462,11 @@ a / b x 10,311,999 ops/sec (11 runs sampled) v8-never-optimize=true min..max=(95
 
 Creating accurate and meaningful benchmarks requires careful attention to how modern JavaScript engines optimize code. This covers essential concepts and best practices to ensure your benchmarks measure actual performance characteristics rather than optimization artifacts.
 
+### examples
+- [readme gif](/examples/gif.js)
+- [cpu cache line size](/examples/cacheline.js)
+- [holey vs packed arrays](/examples/holey_array.js)
+
 ### dead code elimination
 
 JIT can detect and eliminate code that has no observable effects. To ensure your benchmark code executes as intended, you must create observable side effects.
@@ -541,6 +544,6 @@ bench(function* (ctx) {
 }).args('substr', ['c']);
 ```
 
-## license
+## License
 
 MIT © [evanwashere](https://github.com/evanwashere)

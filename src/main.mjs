@@ -96,7 +96,7 @@ export class B {
           const _args = {};
           let _name = this._name;
           for (let oo = 0; oo < args.length; oo++) _args[args[oo]] = this._args[args[oo]][offsets[oo]];
-          for (let oo = 0; oo < args.length; oo++) _name = _name.replace(`\$${args[oo]}`, _args[args[oo]]);
+          for (let oo = 0; oo < args.length; oo++) _name = _name.replaceAll(`\$${args[oo]}`, _args[args[oo]]);
 
           yield _name;
         }
@@ -147,7 +147,7 @@ export class B {
           const _args = {};
           let _name = this._name;
           for (let oo = 0; oo < args.length; oo++) _args[args[oo]] = this._args[args[oo]][offsets[oo]];
-          for (let oo = 0; oo < args.length; oo++) _name = _name.replace(`\$${args[oo]}`, _args[args[oo]]);
+          for (let oo = 0; oo < args.length; oo++) _name = _name.replaceAll(`\$${args[oo]}`, _args[args[oo]]);
           try { stats = await measure(this.f, { ...tune, args: _args }); } catch (err) { error = err; if (thrw) throw err; }
 
           runs[o] = {
@@ -906,8 +906,16 @@ const formats = {
                 header = true;
                 if (!opts.colors) print('summary');
                 else print($.bold + 'summary' + $.reset);
-                if (!opts.colors) print('  ' + baseline.alias);
-                else print(' '.repeat(2) + $.bold + $.cyan + baseline.alias + $.reset);
+
+                if (1 !== bruns.length) {
+                  if (!opts.colors) print('  ' + baseline.alias);
+                  else print(' '.repeat(2) + $.bold + $.cyan + baseline.alias + $.reset);
+                }
+
+                else {
+                  if (!opts.colors) print('  ' + bruns[0].name);
+                  else print(' '.repeat(2) + $.bold + $.cyan + bruns[0].name + $.reset);
+                }
               }
 
               if (1 === runs.length && 1 === bruns.length) {
@@ -957,7 +965,7 @@ const formats = {
                       ? fdiff
                       : ((ffaster ? '+' : '-') + fdiff)
                   )
-                  + `x ${faster ? 'faster' : 'slower'} than ${bench.alias}`
+                  + `x ${faster ? 'faster' : 'slower'} than ${1 === runs.length ? rf.name : bench.alias}`
                 );
 
                 else print(
@@ -981,7 +989,7 @@ const formats = {
                           : ($.green + '+' + fdiff + $.reset)
                       )
                   )
-                  + `x ${faster ? 'faster' : 'slower'} than ${$.bold + $.cyan + bench.alias + $.reset}`
+                  + `x ${faster ? 'faster' : 'slower'} than ${$.bold + $.cyan + (1 === runs.length ? rf.name : bench.alias) + $.reset}`
                 )
               }
             }
