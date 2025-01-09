@@ -16,6 +16,7 @@ const b = () => {
 import { run, bench } from 'mitata';
 
 if (isMainThread) {
+  bench('a / b (warmup)', () => b()).compact();
   bench('a / b', () => b());
 
   bench('a / b (computed)', function* () {
@@ -34,7 +35,7 @@ if (isMainThread) {
     };
   });
 
-  console.log(`${$.time((await run()).benchmarks[0].runs[0].stats.avg)}/iter - https://npmjs.com/mitata`);
+  console.log(`${$.time((await run()).benchmarks[1].runs[0].stats.avg)}/iter - https://npmjs.com/mitata`);
 }
 
 // benchmark.js - https://npmjs.com/benchmark
@@ -43,12 +44,13 @@ const { Suite } = Benchmark;
 
 if (isMainThread) {
   const suite = new Suite();
+  suite.add('a / b (warmup)', () => b());
   suite.add('a / b', () => b());
   suite.on('cycle', (event) => {
     console.log(String(event.target));
-    console.log(`${$.time(1e9 * event.target.stats.mean)}/iter - https://npmjs.com/benchmark`);
+    if (event.target.name === 'a / b') console.log(`${$.time(1e9 * event.target.stats.mean)}/iter - https://npmjs.com/benchmark`);
   });
-  
+
   await suite.run();
 }
 
@@ -58,8 +60,9 @@ import { Bench } from 'tinybench';
 
 if (isMainThread) {
   const tb = new Bench();
+  tb.add('a / b (warmup)', () => b());
   tb.add('a / b', () => b());
-  
+
   await tb.run();
   console.table(tb.table());
   console.log(`${$.time(1e6 * tb._tasks.get('a / b').result.mean)}/iter - vitest bench / https://npmjs.com/tinybench`);
@@ -70,14 +73,19 @@ import { Suite as BNSuite } from 'bench-node';
 
 if (isMainThread) {
   const nbsuite = new BNSuite();
+  nbsuite.add('a / b (warmup)', () => b());
   nbsuite.add('a / b', () => b());
-  console.log(`${$.time((await nbsuite.run())[0].histogram.mean)}/iter - https://npmjs.com/bench-node`);
+  console.log(`${$.time((await nbsuite.run())[1].histogram.mean)}/iter - https://npmjs.com/bench-node`);
 }
 
 // cronometro - https://npmjs.com/cronometro
 import cronometro from 'cronometro';
 
 const results = await cronometro({
+  'a / b (warmup)'() {
+    return b();
+  },
+
   'a / b'() {
     return b();
   },
