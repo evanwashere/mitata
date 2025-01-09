@@ -173,7 +173,8 @@ export async function fn(fn, opts = {}) {
   }
 
   const loop = new AsyncFunction('$fn', '$gc', '$now', '$params', '$counters', `
-    ${!opts.$counters ? '' : 'try { $counters.init(); '}
+    ${!opts.$counters ? '' : 'let _hc = false;'}
+    ${!opts.$counters ? '' : 'try { $counters.init(); _hc = true; } catch {}'}
 
     let _ = 0; let t = 0;
     let samples = new Array(2 ** 20);
@@ -216,7 +217,7 @@ export async function fn(fn, opts = {}) {
         }
       `}
 
-      ${!opts.$counters ? '' : '$counters.before();'} const t0 = $now();
+      ${!opts.$counters ? '' : 'if (_hc) try { $counters.before(); } catch {};'} const t0 = $now();
 
       ${!batch ? `
         ${!async ? '' : (1 >= opts.concurrency ? '' : 'await Promise.all([')}
@@ -246,7 +247,7 @@ export async function fn(fn, opts = {}) {
         }
       `}
 
-      const t1 = $now(); ${!opts.$counters ? '' : '$counters.after();'}
+      const t1 = $now(); ${!opts.$counters ? '' : 'if (_hc) try { $counters.after(); } catch {};'}
 
       const diff = t1 - t0;
       samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
@@ -268,10 +269,10 @@ export async function fn(fn, opts = {}) {
       p999: samples[(.999 * (samples.length - 1)) | 0],
       avg: samples.reduce((a, v) => a + v, 0) / samples.length,
       ticks: samples.length ${!batch ? '' : `* ${opts.batch_samples}`},
-      ${!opts.$counters ? '' : `counters: $counters.translate(${!batch ? 1 : opts.batch_samples}, samples.length),`}
+      ${!opts.$counters ? '' : `...(!_hc ? {} : { counters: $counters.translate(${!batch ? 1 : opts.batch_samples}, samples.length) }),`}
     };
 
-    ${!opts.$counters ? '' : '} finally { $counters.deinit(); }'}
+    ${!opts.$counters ? '' : 'if (_hc) try { $counters.deinit(); } catch {};'}
   `);
 
   return {
