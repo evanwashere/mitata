@@ -101,20 +101,36 @@ await run({ format: { mitata: { name: 'fixed' } } }); // benchmarks name column 
 auto stats = runner.run({ .colors = true, .format = "json", .filter = std::regex(".*") });
 ```
 
-## automatic garbage collection
+## garbage collection
 
-On runtimes that expose gc (e.g. bun, `node --expose-gc ...`), mitata will automatically run garbage collection before each benchmark.
+By default, on runtimes with exposed manual gc (like bun or node with `--expose-gc`), mitata runs garbage collection once after each benchmark warmup.
 
-This behavior can be further customized via the `gc` function on each benchmark:
+This behavior can be customized using `gc(mode)` method on benchmarks:
 
 ```js
 bench('lots of allocations', () => {
   Array.from({ length: 1024 }, () => Array.from({ length: 1024 }, () => new Array(1024)));
 })
-// false | 'once' (default) | 'inner'
-// once runs gc after warmup
-// inner runs gc after warmup and before each (batch-)iteration
-.gc('inner');
+  // mode: false | 'once' (default) | 'inner'
+
+  // once mode runs gc after warmup
+  // inner mode runs gc after warmup and before each (batch-)iteration
+  .gc('inner');
+```
+
+### gc impact and memory usage
+
+For runtimes that provide manual garbage collection or offer access to javscript vm heap usage metrics, additional row will be shown with garbage collection timings or/and estimated heap usage.
+
+```js
+------------------------------------------- -------------------------------
+new Array(512)               509.42 ns/iter 536.53 ns  ▅▃█      ▂          
+                    (449.52 ns … 632.54 ns) 609.34 ns  ███   ▃▅▆█▇         
+                    (  0.00  b …  24.00 kb)   1.61 kb ▆████▅▄██████▅▅▅█▅▄▂▂
+
+Array.from(512)                1.29 µs/iter   1.30 µs  ▂▆█                 
+                        (1.27 µs … 1.48 µs)   1.40 µs ▂███▇▆▃▃▂▁▁▂▁▁▁▁▁▁▁▁▁
+                  gc(457.25 µs … 760.54 µs) 512.32  b (  0.00  b… 84.00 kb)
 ```
 
 ## universal compatibility
@@ -218,6 +234,10 @@ bench('sleepAsync(1000) x 5', function* () {
 `npm install @mitata/counters`
 
 supported on: `macos (apple silicon) | linux (amd64, aarch64)`
+
+linux:
+- `/proc/sys/kernel/perf_event_paranoid` has to be set to `2` or lower
+- on some vm systems pmu is disabled by hypervisor (usually when cpu core is shared across vms)
 
 macos:
 - [Apple Silicon CPU optimization guide/handbook](https://developer.apple.com/documentation/apple-silicon/cpu-optimization-guide)
@@ -364,7 +384,7 @@ const trial = await b.run();
 
 By leveraging the power of javascript JIT compilation, mitata is able to generate zero-overhead measurement loops that provide picoseconds precision in timing measurements. These loops are so precise that they can even be reused to provide additional features like CPU clock frequency estimation and dead code elimination detection, all while staying inside javascript vm sandbox.
 
-With [computed parameters](#computed-parameters) and [garbage collection tuning](#automatic-garbage-collection), you can tap into mitata's code generation capabilities to further refine the accuracy of your benchmarks. Using computed parameters ensures that parameters computation is moved outside the benchmark, thereby preventing the javascript JIT from performing loop invariant code motion optimization.
+With [computed parameters](#computed-parameters) and [garbage collection tuning](#garbage-collection), you can tap into mitata's code generation capabilities to further refine the accuracy of your benchmarks. Using computed parameters ensures that parameters computation is moved outside the benchmark, thereby preventing the javascript JIT from performing loop invariant code motion optimization.
 
 ```rust
 // node --expose-gc --allow-natives-syntax tools/compare.mjs

@@ -48,6 +48,15 @@ export const print = (() => {
   return () => { throw new Error('no print function available'); };
 })();
 
+export const heap = (() => {
+  if (globalThis.process.memoryUsage) try {
+    process.memoryUsage();
+    return () => { const m = process.memoryUsage(); return m.external + m.heapUsed + m.arrayBuffers; };
+  } catch {}
+
+  return null;
+})();
+
 export const gc = (() => {
   try { return (Bun.gc(true), () => Bun.gc(true)); } catch { }
   try { return (globalThis.gc(), () => globalThis.gc()); } catch { }
@@ -55,7 +64,7 @@ export const gc = (() => {
   try { return (globalThis.std.gc(), () => globalThis.std.gc()); } catch { }
   try { return (globalThis.$262.gc(), () => globalThis.$262.gc()); } catch { }
   try { return (globalThis.tjs.engine.gc.run(), () => globalThis.tjs.engine.gc.run()); } catch { }
-  if (globalThis.Graal) return () => new Uint8Array(2 ** 29); return () => new Uint8Array(2 ** 30);
+  return Object.assign(globalThis.Graal ? () => new Uint8Array(2 ** 29) : () => new Uint8Array(2 ** 30), { fallback: true });
 })();
 
 export const now = (() => {
@@ -127,6 +136,7 @@ export const k_warmup_threshold = 500_000;
 function defaults(opts) {
   opts.gc ??= gc;
   opts.now ??= now;
+  opts.heap ??= heap;
   opts.params ??= {};
   opts.inner_gc ??= false;
   opts.$counters ??= false;
@@ -172,12 +182,14 @@ export async function fn(fn, opts = {}) {
     }
   }
 
-  const loop = new AsyncFunction('$fn', '$gc', '$now', '$params', '$counters', `
+  const loop = new AsyncFunction('$fn', '$gc', '$now', '$heap', '$params', '$counters', `
     ${!opts.$counters ? '' : 'let _hc = false;'}
     ${!opts.$counters ? '' : 'try { $counters.init(); _hc = true; } catch {}'}
 
     let _ = 0; let t = 0;
     let samples = new Array(2 ** 20);
+    ${!opts.heap ? '' : 'const heap = { total: 0, min: Infinity, max: -Infinity };'}
+    ${!(opts.gc && opts.inner_gc && !opts.gc.fallback) ? '' : 'const gc = { total: 0, min: Infinity, max: -Infinity };'}
 
     ${!params.length ? '' : Array.from({ length: params.length }, (_, o) => `
       ${Array.from({ length: opts.concurrency }, (_, c) => `
@@ -217,6 +229,7 @@ export async function fn(fn, opts = {}) {
         }
       `}
 
+      ${!opts.heap ? '' : 'const h0 = $heap();'}
       ${!opts.$counters ? '' : 'if (_hc) try { $counters.before(); } catch {};'} const t0 = $now();
 
       ${!batch ? `
@@ -247,7 +260,30 @@ export async function fn(fn, opts = {}) {
         }
       `}
 
-      const t1 = $now(); ${!opts.$counters ? '' : 'if (_hc) try { $counters.after(); } catch {};'}
+      const t1 = $now();
+      ${!opts.$counters ? '' : 'if (_hc) try { $counters.after(); } catch {};'}
+
+      ${!opts.heap ? '' : `
+        const h1 = ($heap() - h0) ${!batch ? '' : `/ ${opts.batch_samples}`};
+
+        if (0 <= h1) {
+          heap.total += h1;
+          heap.min = Math.min(h1, heap.min);
+          heap.max = Math.max(h1, heap.max);
+        }
+      `}
+
+      ${!(opts.gc && opts.inner_gc && !opts.gc.fallback) ? '' : `
+        igc: {
+          const t0 = $now();
+          $gc(); const t1 = $now() - t0;
+
+          gc.total += t1;
+          inner_gc_cost += t1;
+          gc.min = Math.min(t1, gc.min);
+          gc.max = Math.max(t1, gc.max);
+        }
+      `};
 
       const diff = t1 - t0;
       samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
@@ -268,8 +304,10 @@ export async function fn(fn, opts = {}) {
       p99: samples[(.99 * (samples.length - 1)) | 0],
       p999: samples[(.999 * (samples.length - 1)) | 0],
       avg: samples.reduce((a, v) => a + v, 0) / samples.length,
+      ${!opts.heap ? '' : 'heap: { ...heap, avg: heap.total / _ },'}
       ticks: samples.length ${!batch ? '' : `* ${opts.batch_samples}`},
-      ${!opts.$counters ? '' : `...(!_hc ? {} : { counters: $counters.translate(${!batch ? 1 : opts.batch_samples}, samples.length) }),`}
+      ${!(opts.gc && opts.inner_gc && !opts.gc.fallback) ? '' : 'gc: { ...gc, avg: gc.total / _ },'}
+      ${!opts.$counters ? '' : `...(!_hc ? {} : { counters: $counters.translate(${!batch ? 1 : opts.batch_samples}, _) }),`}
     };
 
     ${!opts.$counters ? '' : 'if (_hc) try { $counters.deinit(); } catch {};'}
@@ -278,7 +316,7 @@ export async function fn(fn, opts = {}) {
   return {
     kind: 'fn',
     debug: loop.toString(),
-    ...(await loop(fn, opts.gc, opts.now, opts.params, opts.$counters)),
+    ...(await loop(fn, opts.gc, opts.now, opts.heap, opts.params, opts.$counters)),
   };
 }
 

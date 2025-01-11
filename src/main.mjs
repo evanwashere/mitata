@@ -115,7 +115,19 @@ export class B {
       $counters,
       inner_gc: 'inner' === this._gc,
       gc: !this._gc ? false : undefined,
-      min_cpu_time: 'inner' !== this._gc ? undefined : (1.42 * k_min_cpu_time),
+      min_cpu_time: 'inner' !== this._gc ? undefined : (2 * k_min_cpu_time),
+
+      heap: await (async () => {
+        if (globalThis.Bun) {
+          const { memoryUsage } = await import('bun:jsc');
+          return () => { const m = memoryUsage(); return m.current; };
+        }
+
+        try {
+          process.memoryUsage();
+          return () => { const m = process.memoryUsage(); return m.external + m.heapUsed + m.arrayBuffers; };
+        } catch { }
+      })(),
     };
 
     if (kind === 'static') {
@@ -441,7 +453,7 @@ const formats = {
     else print($.gray + `runtime: ${ctx.runtime}${!ctx.version ? '' : ` ${ctx.version}`} (${ctx.arch})` + $.reset);
 
     print('');
-    print(`${'benchmark'.padEnd(k_legend - 1)} avg (min … max) p75   p99    (min … top 1%)`); print('-'.repeat(15 + k_legend) + ' ' + '-'.repeat(31));
+    print(`${'benchmark'.padEnd(k_legend - 1)} avg (min … max) p75 / p99    (min … top 1%)`); print('-'.repeat(15 + k_legend) + ' ' + '-'.repeat(31));
 
     let first = true;
     let optimized_out_warning = false;
@@ -528,7 +540,7 @@ const formats = {
                 l += _h(name) + ' ';
                 const p75 = $.time(r.stats.p75).padStart(9);
                 const bins = $.histogram.bins(r.stats, 21, .99);
-                const histogram = $.histogram.ascii(bins, 2, { colors: opts.colors });
+                const histogram = $.histogram.ascii(bins, (r.stats.gc && r.stats.heap) ? 2 : (!(r.stats.gc || r.stats.heap) ? 2 : 3), { colors: opts.colors });
 
                 if (!opts.colors) l += avg + '/iter' + ' ' + p75 + ' ' + histogram[0];
                 else l += $.bold + $.yellow + avg + $.reset + $.bold + '/iter' + $.reset + ' ' + $.gray + p75 + $.reset + ' ' + histogram[0];
@@ -554,6 +566,51 @@ const formats = {
                 else l += $.gray + p99 + $.reset + ' ' + histogram[1];
 
                 print(l);
+
+                if (r.stats.gc) {
+                  l = '';
+                  l += ' '.repeat(k_legend - 10);
+                  const gcm = $.time(r.stats.gc.min).padStart(9);
+                  const gcx = $.time(r.stats.gc.max).padStart(9);
+
+                  if (!opts.colors)
+                    l += 'gc(' + gcm + ' … ' + gcx + ')';
+                  else l += $.gray + 'gc(' + $.reset + $.blue + gcm + $.reset + $.gray + ' … ' + $.reset + $.blue + gcx + $.reset + $.gray + ')' + $.reset;
+
+                  if (r.stats.heap) {
+                    l += ' ';
+                    const ha = $.bytes(r.stats.heap.avg).padStart(9);
+                    const hm = $.bytes(r.stats.heap.min).padStart(9);
+                    const hx = $.bytes(r.stats.heap.max).padStart(9);
+
+                    if (!opts.colors)
+                      l += ha + ' (' + hm + '…' + hx + ')';
+                    else l += $.yellow + ha + $.reset + $.gray + ' (' + $.reset + $.yellow + hm + $.reset + $.gray + '…' + $.reset + $.yellow + hx + $.reset + $.gray + ')' + $.reset;
+                  }
+
+                  else {
+                    l += ' ';
+                    const gca = ($.time(r.stats.gc.avg)).padStart(9);
+
+                    if (!opts.colors) l += gca + ' ' + histogram[2];
+                    else l += $.blue + gca + $.reset + ' ' + histogram[2];
+                  }
+
+                  print(l);
+                }
+
+                else if (r.stats.heap) {
+                  l = ' '.repeat(k_legend - 8);
+                  const ha = $.bytes(r.stats.heap.avg).padStart(9);
+                  const hm = $.bytes(r.stats.heap.min).padStart(9);
+                  const hx = $.bytes(r.stats.heap.max).padStart(9);
+
+                  if (!opts.colors)
+                    l += '(' + hm + ' … ' + hx + ') ' + ha + ' ' + histogram[2];
+                  else l += $.gray + '(' + $.reset + $.yellow + hm + $.reset + $.gray + ' … ' + $.reset + $.yellow + hx + $.reset + $.gray + ') ' + $.reset + $.yellow + ha + $.reset + ' ' + histogram[2];
+
+                  print(l);
+                }
 
                 if (r.stats.counters) {
                   l = '';
@@ -1044,6 +1101,7 @@ export const $ = {
   },
 
   amount(n) {
+    if (Number.isNaN(n)) return 'NaN';
     if (n < 1e3) return n.toFixed(2); n /= 1000;
     if (n < 1e3) return `${n.toFixed(2)}k`; n /= 1000;
     if (n < 1e3) return `${n.toFixed(2)}M`; n /= 1000;
@@ -1053,6 +1111,18 @@ export const $ = {
     return `${n.toFixed(2)}P`;
   },
 
+  bytes(b, pad = true) {
+    if (Number.isNaN(b)) return 'NaN';
+    if (b < 1e0) return `${(b * 1e3).toFixed(2)} ${!pad ? '' : ' '}b`;
+
+    if (b < 1e3) return `${b.toFixed(2)} kb`; b /= 1024;
+    if (b < 1e3) return `${b.toFixed(2)} mb`; b /= 1024;
+    if (b < 1e3) return `${b.toFixed(2)} gb`; b /= 1024;
+    if (b < 1e3) return `${b.toFixed(2)} tb`; b /= 1024;
+
+    return `${b.toFixed(2)} pb`;
+  },
+
   time(ns) {
     if (ns < 1e0) return `${(ns * 1e3).toFixed(2)} ps`;
     if (ns < 1e3) return `${ns.toFixed(2)} ns`; ns /= 1000;
@@ -1060,7 +1130,9 @@ export const $ = {
     if (ns < 1e3) return `${ns.toFixed(2)} ms`; ns /= 1000;
 
     if (ns < 1e3) return `${ns.toFixed(2)} s`; ns /= 60;
-    if (ns < 1e3) return `${ns.toFixed(2)} m`; ns /= 60; return `${ns.toFixed(2)} h`;
+    if (ns < 1e3) return `${ns.toFixed(2)} m`; ns /= 60;
+
+    return `${ns.toFixed(2)} h`;
   },
 
   barplot: {
