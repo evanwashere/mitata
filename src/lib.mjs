@@ -49,7 +49,7 @@ export const print = (() => {
 })();
 
 export const heap = (() => {
-  if (globalThis.process.memoryUsage) try {
+  if (globalThis.process?.memoryUsage) try {
     process.memoryUsage();
     return () => { const m = process.memoryUsage(); return m.external + m.heapUsed + m.arrayBuffers; };
   } catch {}
