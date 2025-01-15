@@ -1,5 +1,5 @@
+import { kind, print, measure } from './lib.mjs';
 export { measure, do_not_optimize } from './lib.mjs';
-import { kind, print, measure, k_min_cpu_time } from './lib.mjs';
 
 let FLAGS = 0;
 let $counters = null;
@@ -115,7 +115,6 @@ export class B {
       $counters,
       inner_gc: 'inner' === this._gc,
       gc: !this._gc ? false : undefined,
-      min_cpu_time: 'inner' !== this._gc ? undefined : (2 * k_min_cpu_time),
 
       heap: await (async () => {
         if (globalThis.Bun) {
@@ -317,6 +316,7 @@ export async function run(opts = {}) {
   const benchmarks = [];
   const noop = await measure(() => { });
   const _cpu = await measure(() => { }, { batch_unroll: 1 });
+  const noop_inner_gc = await measure(() => { }, { inner_gc: true });
   const noop_iter = await measure(state => { for (const _ of state); });
 
   const context = {
@@ -328,6 +328,7 @@ export async function run(opts = {}) {
     noop: {
       fn: noop,
       iter: noop_iter,
+      fn_gc: noop_inner_gc,
     },
 
     cpu: {
@@ -501,7 +502,7 @@ const formats = {
 
             else {
               const compact = trial.flags & flags.compact;
-              const noop = 'iter' !== r.stats.kind ? ctx.noop.fn : ctx.noop.iter;
+              const noop = 'iter' === r.stats.kind ? ctx.noop.iter : (trial._gc !== 'inner' ? ctx.noop.fn : ctx.noop.fn_gc);
 
               const optimized_out = r.stats.avg < (1.42 * noop.avg);
               optimized_out_warning = optimized_out_warning || optimized_out;
@@ -651,7 +652,6 @@ const formats = {
                     const ipc = r.stats.counters.instructions.avg / r.stats.counters.cycles.avg;
                     const stalls = 100 * r.stats.counters.cycles.stalls.avg / r.stats.counters.cycles.avg;
                     const ldst = 100 * r.stats.counters.instructions.loads_and_stores.avg / r.stats.counters.instructions.avg;
-                    // const branches = 100 - Math.min(100, 100 * r.stats.counters.branches.mispredicted.avg / r.stats.counters.branches.avg);
                     const cache = 100 - Math.min(100, 100 * (r.stats.counters.l1.miss_loads.avg + r.stats.counters.l1.miss_stores.avg) / r.stats.counters.instructions.loads_and_stores.avg);
 
                     l += ' '.repeat(k_legend - 13);
@@ -675,8 +675,6 @@ const formats = {
                     l += ' ' + ldst.toFixed(2).padStart(6) + '%' + ' retired LD/ST (' + $.amount(r.stats.counters.instructions.loads_and_stores.avg).padStart(7) + ')';
 
                     if (opts.colors) l += $.reset;
-
-                    // l += ' ' + (50 > branches ? $.red : (84 < branches ? $.green : $.yellow)) + branches.toFixed(2).padStart(6) + '%' + $.reset + ' branches';
 
                     print(l);
                   }

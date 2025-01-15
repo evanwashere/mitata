@@ -361,7 +361,16 @@ import { B, measure } from 'mitata';
 // lowest level for power users
 const stats = await measure(function* (state) {
   const size = state.get('x');
-  yield () => new Array(size);
+
+  yield {
+    [0]() {
+      return size;
+    },
+
+    bench(size) {
+      return new Array(size);
+    },
+  };
 }, {
   args: { x: 1 },
   batch_samples: 5 * 1024,
@@ -372,9 +381,9 @@ const stats = await measure(function* (state) {
 console.log(stats.debug) // -> jit optimized source code of benchmark
 
 // higher level api that includes mitata's argument and range features
-const b = new B('new Array($x)', state => {
+const b = new B('new Array($x)', function* (state) {
   const size = state.get('x');
-  for (const _ of state) new Array(size);
+  yield () => new Array(size);
 }).args('x', [1, 5, 10]);
 
 const trial = await b.run();

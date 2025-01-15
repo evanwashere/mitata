@@ -1,5 +1,5 @@
 import { openSync, closeSync, readFileSync } from 'fs';
-import { run, bench, boxplot, summary, compact, barplot, group, lineplot, do_not_optimize } from '..';
+import { run, bench, boxplot, summary, compact, barplot, group, lineplot, do_not_optimize } from '../src/main.mjs';
 
 barplot(() => {
   summary(() => {

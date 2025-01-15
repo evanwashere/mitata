@@ -52,7 +52,7 @@ export const heap = (() => {
   if (globalThis.process?.memoryUsage) try {
     process.memoryUsage();
     return () => { const m = process.memoryUsage(); return m.external + m.heapUsed + m.arrayBuffers; };
-  } catch {}
+  } catch { }
 
   return null;
 })();
@@ -122,6 +122,9 @@ export function kind(fn, _ = false) {
   ) return 'iter';
 }
 
+const k_cpu_time_rescale_heap = 1.1;
+const k_cpu_time_rescale_inner_gc = 2;
+
 export const k_concurrency = 1;
 export const k_min_samples = 12;
 export const k_batch_unroll = 4;
@@ -150,6 +153,9 @@ function defaults(opts) {
   opts.batch_threshold ??= k_batch_threshold;
   opts.warmup_threshold ??= k_warmup_threshold;
   opts.samples_threshold ??= k_samples_threshold;
+
+  if (opts.heap) opts.min_cpu_time *= k_cpu_time_rescale_heap;
+  if (opts.gc && opts.inner_gc) opts.min_cpu_time *= k_cpu_time_rescale_inner_gc;
 }
 
 export async function fn(fn, opts = {}) {
@@ -221,11 +227,9 @@ export async function fn(fn, opts = {}) {
       `}
 
       ${!(opts.gc && opts.inner_gc) ? '' : `
-        let inner_gc_cost = 0;
-
         igc: {
-          const t0 = $now(); $gc();
-          inner_gc_cost = $now() - t0;
+          const t0 = $now();
+          $gc(); t += $now() - t0;
         }
       `}
 
@@ -264,12 +268,15 @@ export async function fn(fn, opts = {}) {
       ${!opts.$counters ? '' : 'if (_hc) try { $counters.after(); } catch {};'}
 
       ${!opts.heap ? '' : `
-        const h1 = ($heap() - h0) ${!batch ? '' : `/ ${opts.batch_samples}`};
+        heap: {
+          const t0 = $now();
+          const h1 = ($heap() - h0) ${!batch ? '' : `/ ${opts.batch_samples}`}; t += $now() - t0;
 
-        if (0 <= h1) {
-          heap.total += h1;
-          heap.min = Math.min(h1, heap.min);
-          heap.max = Math.max(h1, heap.max);
+          if (0 <= h1) {
+            heap.total += h1;
+            heap.min = Math.min(h1, heap.min);
+            heap.max = Math.max(h1, heap.max);
+          }
         }
       `}
 
@@ -278,16 +285,15 @@ export async function fn(fn, opts = {}) {
           const t0 = $now();
           $gc(); const t1 = $now() - t0;
 
+          t += t1;
           gc.total += t1;
-          inner_gc_cost += t1;
           gc.min = Math.min(t1, gc.min);
           gc.max = Math.max(t1, gc.max);
         }
       `};
 
-      const diff = t1 - t0;
+      const diff = t1 - t0; t += diff;
       samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
-      t += diff ${!(opts.gc && opts.inner_gc) ? '' : '+ inner_gc_cost'};
     }
 
     samples.length = _;
@@ -320,6 +326,9 @@ export async function fn(fn, opts = {}) {
   };
 }
 
+
+
+// TODO: update when jit can do zero-cost opt
 export async function iter(iter, opts = {}) {
   const _ = {};
   defaults(opts);
@@ -332,7 +341,6 @@ export async function iter(iter, opts = {}) {
     get(name) { return opts.args?.[name] },
   };
 
-  // TODO: counters
   const gen = (function* () {
     let batch = false;
 

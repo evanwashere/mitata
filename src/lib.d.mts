@@ -41,11 +41,14 @@ interface stats {
   kind: 'fn' | 'iter' | 'yield';
   min: number; max: number; avg: number; p25: number;
   p50: number; p75: number; p99: number; p999: number;
+  gc?: { avg: number, min: number, max: number, total: number };
+  heap?: { avg: number, min: number, max: number, total: number };
 }
 
 interface k_options {
   now?: () => number;
   inner_gc?: boolean;
+  heap?: () => number;
   concurrency?: number;
   min_samples?: number;
   max_samples?: number;
