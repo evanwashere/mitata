@@ -123,8 +123,8 @@ export class B {
         }
 
         try {
-          process.memoryUsage();
-          return () => { const m = process.memoryUsage(); return m.external + m.heapUsed + m.arrayBuffers; };
+          const { getHeapStatistics } = await import('node:v8'); getHeapStatistics();
+          return () => { const m = getHeapStatistics(); return m.used_heap_size + m.malloced_memory; }
         } catch { }
       })(),
     };
@@ -1060,8 +1060,8 @@ const formats = {
       else (print(''), nl = true, print($.yellow + '!' + $.reset + $.gray + ' = ' + $.reset + 'run with sudo to enable hardware counters'));
 
     if (optimized_out_warning)
-      if (!opts.colors) (nl ? null : print(''), print('! = benchmark was likely optimized out (dead code elimination)'));
-      else (nl ? null : print(''), print($.red + '!' + $.reset + $.gray + ' = ' + $.reset + 'benchmark was likely optimized out' + ' ' + $.gray + '(dead code elimination)' + $.reset));
+      if (!opts.colors) (nl ? null : print(''), print(' '.repeat(k_legend - 13) + 'benchmark was likely optimized out (dead code elimination) = !'), print(' '.repeat(k_legend - 13) + 'https://github.com/evanwashere/mitata#writing-good-benchmarks'));
+      else (nl ? null : print(''), print(' '.repeat(k_legend - 13) + 'benchmark was likely optimized out' + ' ' + $.gray + '(dead code elimination)' + $.reset + $.gray + ' = ' + $.reset + $.red + '!' + $.reset), print(' '.repeat(k_legend - 13) + $.gray + 'https://github.com/evanwashere/mitata#writing-good-benchmarks' + $.reset));
   },
 };
 

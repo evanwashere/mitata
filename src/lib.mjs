@@ -48,15 +48,6 @@ export const print = (() => {
   return () => { throw new Error('no print function available'); };
 })();
 
-export const heap = (() => {
-  if (globalThis.process?.memoryUsage) try {
-    process.memoryUsage();
-    return () => { const m = process.memoryUsage(); return m.external + m.heapUsed + m.arrayBuffers; };
-  } catch { }
-
-  return null;
-})();
-
 export const gc = (() => {
   try { return (Bun.gc(true), () => Bun.gc(true)); } catch { }
   try { return (globalThis.gc(), () => globalThis.gc()); } catch { }
@@ -139,7 +130,7 @@ export const k_warmup_threshold = 500_000;
 function defaults(opts) {
   opts.gc ??= gc;
   opts.now ??= now;
-  opts.heap ??= heap;
+  opts.heap ??= null;
   opts.params ??= {};
   opts.inner_gc ??= false;
   opts.$counters ??= false;
@@ -194,7 +185,7 @@ export async function fn(fn, opts = {}) {
 
     let _ = 0; let t = 0;
     let samples = new Array(2 ** 20);
-    ${!opts.heap ? '' : 'const heap = { total: 0, min: Infinity, max: -Infinity };'}
+    ${!opts.heap ? '' : 'const heap = { _: 0, total: 0, min: Infinity, max: -Infinity };'}
     ${!(opts.gc && opts.inner_gc && !opts.gc.fallback) ? '' : 'const gc = { total: 0, min: Infinity, max: -Infinity };'}
 
     ${!params.length ? '' : Array.from({ length: params.length }, (_, o) => `
@@ -273,6 +264,7 @@ export async function fn(fn, opts = {}) {
           const h1 = ($heap() - h0) ${!batch ? '' : `/ ${opts.batch_samples}`}; t += $now() - t0;
 
           if (0 <= h1) {
+            heap._++;
             heap.total += h1;
             heap.min = Math.min(h1, heap.min);
             heap.max = Math.max(h1, heap.max);
@@ -310,8 +302,8 @@ export async function fn(fn, opts = {}) {
       p99: samples[(.99 * (samples.length - 1)) | 0],
       p999: samples[(.999 * (samples.length - 1)) | 0],
       avg: samples.reduce((a, v) => a + v, 0) / samples.length,
-      ${!opts.heap ? '' : 'heap: { ...heap, avg: heap.total / _ },'}
       ticks: samples.length ${!batch ? '' : `* ${opts.batch_samples}`},
+      ${!opts.heap ? '' : 'heap: { ...heap, avg: heap.total / heap._ },'}
       ${!(opts.gc && opts.inner_gc && !opts.gc.fallback) ? '' : 'gc: { ...gc, avg: gc.total / _ },'}
       ${!opts.$counters ? '' : `...(!_hc ? {} : { counters: $counters.translate(${!batch ? 1 : opts.batch_samples}, _) }),`}
     };
