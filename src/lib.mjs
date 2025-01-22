@@ -43,8 +43,9 @@ export async function generator(gen, opts = {}) {
 }
 
 export const print = (() => {
-  if (globalThis.print) return globalThis.print;
   if (globalThis.console?.log) return globalThis.console.log;
+  if (globalThis.print && !globalThis.document) return globalThis.print;
+
   return () => { throw new Error('no print function available'); };
 })();
 
