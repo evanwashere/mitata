@@ -1111,8 +1111,9 @@ export const $ = {
 
   bytes(b, pad = true) {
     if (Number.isNaN(b)) return 'NaN';
-    if (b < 1e0) return `${(b * 1e3).toFixed(2)} ${!pad ? '' : ' '}b`;
+    if (b < 1e3) return `${b.toFixed(2)} ${!pad ? '' : ' '}b`;
 
+    b /= 1024;
     if (b < 1e3) return `${b.toFixed(2)} kb`; b /= 1024;
     if (b < 1e3) return `${b.toFixed(2)} mb`; b /= 1024;
     if (b < 1e3) return `${b.toFixed(2)} gb`; b /= 1024;
