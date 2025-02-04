@@ -88,22 +88,28 @@ export function boxplot(f: () => Promise<any>): Promise<void>;
 export function barplot(f: () => Promise<any>): Promise<void>;
 export function group(name: string, f: () => Promise<any>): Promise<void>;
 
-export function run(opts?: { throw?: boolean; filter?: RegExp; colors?: boolean; format?: 'json' | 'quiet' | 'mitata' | 'markdown' | { mitata: { name?: number | 'fixed' | 'longest' } }; }): Promise<{ context: ctx, benchmarks: trial[] }>;
+export function run(opts?: {
+  throw?: boolean;
+  filter?: RegExp;
+  colors?: boolean;
+  print?: (s: string) => any;
+  observe?: (t: trial) => trial;
+
+  format?:
+    'json'
+    | 'quiet'
+    | 'mitata'
+    | 'markdown'
+    | { json: { debug?: boolean, samples?: boolean } }
+    | { mitata: { name?: number | 'fixed' | 'longest' } }
+}): Promise<{ context: ctx, benchmarks: trial[] }>;
 
 export const flags: {
   compact: number;
   baseline: number;
 };
 
-interface trial {
-  runs: run[];
-  alias: string;
-  baseline: boolean;
-  args: Record<string, any[]>;
-  kind: 'args' | 'static' | 'multi-args';
-}
-
-type run = ({
+type Run = ({
   stats: stats;
   error: undefined;
 } | {
@@ -112,6 +118,19 @@ type run = ({
 }) & {
   name: string;
   args: Record<string, any>;
+}
+
+interface trial {
+  runs: Run[];
+  alias: string;
+  baseline: boolean;
+  args: Record<string, any[]>;
+  kind: 'args' | 'static' | 'multi-args';
+
+  style: {
+    compact: boolean;
+    highlight: false | string;
+  };
 }
 
 export class B {

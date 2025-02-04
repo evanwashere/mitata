@@ -1,5 +1,5 @@
-import { kind, print, measure } from './lib.mjs';
 export { measure, do_not_optimize } from './lib.mjs';
+import { kind, measure, print as grint } from './lib.mjs';
 
 let FLAGS = 0;
 let $counters = null;
@@ -34,7 +34,8 @@ export class B {
   }
 
   highlight(color = false) {
-    if (color && !$.colors.includes(color)) throw new TypeError('invalid highlight color'); return (this._highlight = color, this);
+    if (!color) return (this._highlight = false, this);
+    if (!$.colors.includes(color)) throw new TypeError('invalid highlight color'); return (this._highlight = color, this);
   }
 
   compact(bool = true) {
@@ -145,6 +146,11 @@ export class B {
           stats, error,
           args: {}, name: this._name,
         }],
+
+        style: {
+          highlight: this._highlight,
+          compact: !!(this.flags & flags.compact),
+        },
       };
     }
 
@@ -177,6 +183,11 @@ export class B {
         alias: this._name,
         group: this._group,
         baseline: !!(this.flags & flags.baseline),
+
+        style: {
+          highlight: this._highlight,
+          compact: !!(this.flags & flags.compact),
+        },
       };
     }
   }
@@ -304,10 +315,12 @@ async function arch() {
 // ------ run ------
 
 function defaults(opts) {
+  opts.print ??= grint;
   opts.throw ??= false;
   opts.filter ??= /.*/;
   opts.format ??= 'mitata';
   opts.colors ??= colors();
+  opts.observe ??= trial => trial;
 }
 
 export async function run(opts = {}) {
@@ -325,15 +338,15 @@ export async function run(opts = {}) {
     version: version(),
     runtime: runtime(),
 
+    cpu: {
+      name: await cpu(),
+      freq: 1 / _cpu.avg,
+    },
+
     noop: {
       fn: noop,
       iter: noop_iter,
       fn_gc: noop_inner_gc,
-    },
-
-    cpu: {
-      name: await cpu(),
-      freq: 1 / _cpu.avg,
     },
   };
 
@@ -367,15 +380,19 @@ const formats = {
   async quiet(_, opts, benchmarks) {
     for (const collection of COLLECTIONS) {
       for (const trial of collection.trials) {
-        if (opts.filter.test(trial._name)) benchmarks.push(await trial.run(opts.throw));
+        if (opts.filter.test(trial._name)) benchmarks.push(opts.observe(await trial.run(opts.throw)));
       }
     }
   },
 
   async json(ctx, opts, benchmarks, layout) {
+    const print = opts.print;
+    const debug = opts.format?.debug ?? true;
+    const samples = opts.format?.samples ?? true;
+
     for (const collection of COLLECTIONS) {
       for (const trial of collection.trials) {
-        if (opts.filter.test(trial._name)) benchmarks.push(await trial.run(opts.throw));
+        if (opts.filter.test(trial._name)) benchmarks.push(opts.observe(await trial.run(opts.throw)));
       }
     }
 
@@ -384,7 +401,10 @@ const formats = {
       benchmarks,
       context: ctx,
     },
-      (_, v) => {
+      (k, v) => {
+        if (!debug && k === 'debug') return '';
+        if (!samples && k === 'samples') return null;
+
         if (!(v instanceof Error)) return v;
         return { message: String(v.message), stack: v.stack };
       }, 0));
@@ -392,6 +412,7 @@ const formats = {
 
   async markdown(ctx, opts, benchmarks) {
     let first = true;
+    const print = opts.print;
 
     print(`clk: ~${ctx.cpu.freq.toFixed(2)} GHz`); print(`cpu: ${ctx.cpu.name}`);
     print(`runtime: ${ctx.runtime}${!ctx.version ? '' : ` ${ctx.version}`} (${ctx.arch})`);
@@ -404,7 +425,9 @@ const formats = {
 
       for (const trial of collection.trials) {
         if (opts.filter.test(trial._name)) {
-          const bench = await trial.run(opts.throw);
+          let bench = await trial.run(opts.throw);
+
+          bench = opts.observe(bench);
           trials.push(bench); benchmarks.push(bench);
         }
       }
@@ -426,6 +449,7 @@ const formats = {
   },
 
   async mitata(ctx, opts, benchmarks) {
+    const print = opts.print;
     let k_legend = opts.format?.name ?? 'longest';
 
     if ('fixed' === k_legend) k_legend = 28;
@@ -461,7 +485,7 @@ const formats = {
 
     for (const collection of COLLECTIONS) {
       const trials = [];
-      let prev_run_counters = false;
+      let prev_run_gap = false;
       if (!collection.trials.length) continue;
       const has_matches = collection.trials.some(trial => opts.filter.test(trial._name));
 
@@ -486,14 +510,15 @@ const formats = {
 
       for (const trial of collection.trials) {
         if (opts.filter.test(trial._name)) {
-          const bench = await trial.run(opts.throw);
+          let bench = await trial.run(opts.throw);
+
+          bench = opts.observe(bench);
           trials.push([trial, bench]); benchmarks.push(bench);
           if (-1 === $.colors.indexOf(trial._highlight)) trial._highlight = null;
           const _h = !opts.colors || !trial._highlight ? x => x : x => $[trial._highlight] + x + $.reset;
 
           for (const r of bench.runs) {
-            if (prev_run_counters) print('');
-            prev_run_counters = !!r.stats?.counters;
+            if (prev_run_gap) print('');
 
             if (r.error) {
               if (!opts.colors) print(`${_h($.str(r.name, k_legend).padEnd(k_legend))} error: ${r.error.message ?? r.error}`);
@@ -509,7 +534,7 @@ const formats = {
 
               if (compact) {
                 let l = '';
-                prev_run_counters = false;
+                prev_run_gap = false;
                 const avg = $.time(r.stats.avg).padStart(9);
                 const name = $.str(r.name, k_legend).padEnd(k_legend);
 
@@ -570,6 +595,7 @@ const formats = {
 
                 if (r.stats.gc) {
                   l = '';
+                  prev_run_gap = true;
                   l += ' '.repeat(k_legend - 10);
                   const gcm = $.time(r.stats.gc.min).padStart(9);
                   const gcx = $.time(r.stats.gc.max).padStart(9);
@@ -601,6 +627,7 @@ const formats = {
                 }
 
                 else if (r.stats.heap) {
+                  prev_run_gap = true;
                   l = ' '.repeat(k_legend - 8);
                   const ha = $.bytes(r.stats.heap.avg).padStart(9);
                   const hm = $.bytes(r.stats.heap.min).padStart(9);
@@ -615,6 +642,7 @@ const formats = {
 
                 if (r.stats.counters) {
                   l = '';
+                  prev_run_gap = true;
 
                   if (ctx.arch.includes('linux')) {
                     const _bmispred = r.stats.counters._bmispred.avg;
@@ -1142,7 +1170,7 @@ export const $ = {
       bl: '└', br: '┘',
     },
 
-    ascii(map, key = 8, size = 14, { steps = 0, colors = true, symbols = $.barplot.symbols } = {}) {
+    ascii(map, key = 8, size = 14, { steps = 0, fmt = $.time, colors = true, symbols = $.barplot.symbols } = {}) {
       const values = Object.values(map);
       const canvas = new Array(2 + values.length).fill('');
 
@@ -1167,7 +1195,7 @@ export const $ = {
 
         canvas[o + 1] += ' ';
         if (colors) canvas[o + 1] += $.yellow;
-        canvas[o + 1] += $.time(value); if (colors) canvas[o + 1] += $.reset;
+        canvas[o + 1] += fmt(value); if (colors) canvas[o + 1] += $.reset;
       });
 
       canvas[canvas.length - 1] += ' '.repeat(1 + key);
@@ -1339,15 +1367,23 @@ export const $ = {
     bins(stats, size = 6, percentile = 1) {
       const offset = (percentile * (stats.samples.length - 1)) | 0;
 
-      const min = stats.min;
+      let min = stats.min;
       const max = stats.samples[offset] || stats.max || 1;
 
       const steps = new Array(size);
       const bins = new Array(size).fill(0);
       const step = (max - min) / (size - 1);
 
-      for (let o = 0; o < size; o++) steps[o] = min + o * step;
-      for (let o = 0; o <= offset; o++) bins[Math.round((stats.samples[o] - min) / step)]++;
+      if (0 === step) {
+        min = 0;
+        for (let o = 0; o < size; o++) steps[o] = o * step;
+        bins[$.clamp(0, Math.round((stats.avg - min) / step), size - 1)] = 1;
+      }
+
+      else {
+        for (let o = 0; o < size; o++) steps[o] = min + o * step;
+        for (let o = 0; o <= offset; o++) bins[Math.round((stats.samples[o] - min) / step)]++;
+      }
 
       return {
         min, max,
@@ -1453,7 +1489,7 @@ export const $ = {
       },
     },
 
-    ascii(map, key = 8, size = 14, { colors = true, symbols = $.boxplot.symbols } = {}) {
+    ascii(map, key = 8, size = 14, { fmt = $.time, colors = true, symbols = $.boxplot.symbols } = {}) {
       let tmin = Infinity;
       let tmax = -Infinity;
       const keys = Object.keys(map);
@@ -1541,9 +1577,9 @@ export const $ = {
       canvas[canvas.length - 2] += ' '.repeat(1 + key);
       canvas[canvas.length - 2] += symbols.bl + ' '.repeat(size) + symbols.br;
 
-      const rmin = $.time(tmin);
-      const rmax = $.time(tmax);
-      const rmid = $.time((tmin + tmax) / 2);
+      const rmin = fmt(tmin);
+      const rmax = fmt(tmax);
+      const rmid = fmt((tmin + tmax) / 2);
       const gap = (size - rmin.length - rmid.length - rmax.length) / 2;
 
       canvas[canvas.length - 1] += ' '.repeat(1 + key);

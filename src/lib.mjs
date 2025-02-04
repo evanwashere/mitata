@@ -20,11 +20,18 @@ export async function generator(gen, opts = {}) {
   const g = gen(ctx);
   const n = await g.next();
 
-  if (n.done || 'fn' !== kind(n.value)) {
-    if ('fn' !== kind(n.value?.bench, true)) throw new TypeError('expected benchmarkable yield from generator');
+  let $fn = n.value;
+  if (!n.value?.heap && null != n.value?.heap) opts.heap = false;
+  opts.concurrency ??= n.value?.concurrency ?? opts.args?.concurrency;
+  if (!n.value?.counters && null != n.value?.counters) opts.$counters = false;
+
+  if (n.done || 'fn' !== kind($fn)) {
+    $fn = n.value?.bench || n.value?.manual;
+    if ('fn' !== kind($fn, true)) throw new TypeError('expected benchmarkable yield from generator');
 
     opts.params ??= {};
-    const params = n.value.bench.length;
+    const params = $fn.length;
+    opts.manual = !n.value.manual ? false : ('manual' !== n.value.budget ? 'real' : 'manual');
 
     for (let o = 0; o < params; o++) {
       opts.params[o] = n.value[o];
@@ -32,8 +39,7 @@ export async function generator(gen, opts = {}) {
     }
   }
 
-  opts.concurrency ??= n.value?.concurrency ?? opts.args?.concurrency;
-  const stats = await fn('fn' === kind(n.value) ? n.value : n.value.bench, opts);
+  const stats = await fn($fn, opts);
   if (!(await g.next()).done) throw new TypeError('expected generator to yield once');
 
   return {
@@ -133,6 +139,7 @@ function defaults(opts) {
   opts.now ??= now;
   opts.heap ??= null;
   opts.params ??= {};
+  opts.manual ??= false;
   opts.inner_gc ??= false;
   opts.$counters ??= false;
   opts.concurrency ??= k_concurrency;
@@ -180,6 +187,11 @@ export async function fn(fn, opts = {}) {
     }
   }
 
+  if (opts.manual) {
+    batch = false;
+    opts.concurrency = 1;
+  }
+
   const loop = new AsyncFunction('$fn', '$gc', '$now', '$heap', '$params', '$counters', `
     ${!opts.$counters ? '' : 'let _hc = false;'}
     ${!opts.$counters ? '' : 'try { $counters.init(); _hc = true; } catch {}'}
@@ -225,19 +237,20 @@ export async function fn(fn, opts = {}) {
         }
       `}
 
+      ${!opts.manual ? '' : 'let t2 = 0;'}
       ${!opts.heap ? '' : 'const h0 = $heap();'}
       ${!opts.$counters ? '' : 'if (_hc) try { $counters.before(); } catch {};'} const t0 = $now();
 
       ${!batch ? `
         ${!async ? '' : (1 >= opts.concurrency ? '' : 'await Promise.all([')}
           ${Array.from({ length: opts.concurrency }, (_, c) => `
-            ${!async ? '' : (1 < opts.concurrency ? '' : 'await ')} ${(!params.length ? `
+            ${!opts.manual ? '' : 't2 +='} ${!async ? '' : (1 < opts.concurrency ? '' : 'await')} ${(!params.length ? `
               $fn()
             ` : `
               $fn(${Array.from({ length: params.length }, (_, o) => `param_${o}_${c}`).join(', ')})
             `).trim()}${!async ? ';' : (1 < opts.concurrency ? ',' : ';')}
           `.trim()).join('\n')}
-        ${!async ? '' : (1 >= opts.concurrency ? '' : ']);')}
+        ${!async ? '' : (1 >= opts.concurrency ? '' : `]);`)}
       ` : `
         for (let o = 0; o < ${(opts.batch_samples / opts.batch_unroll) | 0}; o++) {
           ${!params.length ? '' : `const param_offset = o * ${opts.batch_unroll};`}
@@ -245,7 +258,7 @@ export async function fn(fn, opts = {}) {
           ${Array.from({ length: opts.batch_unroll }, (_, u) => `
             ${!async ? '' : (1 >= opts.concurrency ? '' : 'await Promise.all([')}
               ${Array.from({ length: opts.concurrency }, (_, c) => `
-                ${!async ? '' : (1 < opts.concurrency ? '' : 'await ')} ${(!params.length ? `
+                ${!async ? '' : (1 < opts.concurrency ? '' : 'await')} ${(!params.length ? `
                   $fn()
                 ` : `
                   $fn(${Array.from({ length: params.length }, (_, o) => `param_${o}_${c}[${u === 0 ? '' : `${u} + `}param_offset]`).join(', ')})
@@ -285,7 +298,8 @@ export async function fn(fn, opts = {}) {
         }
       `};
 
-      const diff = t1 - t0; t += diff;
+      const diff = ${opts.manual ? 't2' : 't1 - t0'};
+      t += ${'manual' === opts.manual ? 't2' : 't1 - t0'};
       samples[_] = diff ${!batch ? '' : `/ ${opts.batch_samples}`};
     }
 

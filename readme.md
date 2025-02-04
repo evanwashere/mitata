@@ -135,7 +135,7 @@ Array.from(512)                1.29 µs/iter   1.30 µs  ▂▆█
 
 ## universal compatibility
 
-Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L45) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
+Out of box mitata can detect engine/runtime it's running on and fall back to using [alternative](https://github.com/evanwashere/mitata/blob/master/src/lib.mjs#L51) non-standard I/O functions. If your engine or runtime is missing support, open an issue or pr requesting for support.
 
 ### how to use mitata with engine CLIs like d8, jsc, graaljs, spidermonkey
 
