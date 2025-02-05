@@ -220,11 +220,11 @@ namespace mitata {
       for (auto o = 0; o <= poffset; o++) bins[std::round((stats.samples[o] - min) / step)]++;
 
       return {
-        .avg = clamp(0, (u64)std::round((stats.avg - min) / step), size - 1),
-        .peak = *std::max_element(bins.begin(), bins.end()),
-        .outliers = stats.samples.size() - 1 - poffset,
         .min = min, .max = max,
         .step = step, .bins = bins, .steps = steps,
+        .outliers = stats.samples.size() - 1 - poffset,
+        .peak = *std::max_element(bins.begin(), bins.end()),
+        .avg = clamp(0, (u64)std::round((stats.avg - min) / step), size - 1),
       };
     }
 
