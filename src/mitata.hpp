@@ -19,7 +19,6 @@ namespace mitata {
   typedef int16_t i16; typedef uint16_t u16;
   typedef int32_t i32; typedef uint32_t u32;
   typedef int64_t i64; typedef uint64_t u64;
-  typedef __int128 i128; typedef unsigned __int128 u128;
 
   namespace lib {
     struct k_stats {
