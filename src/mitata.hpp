@@ -3,8 +3,11 @@
 
 #include <map>
 #include <regex>
+#include <cmath>
+#include <chrono>
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <sstream>
 #include <numeric>
 #include <iostream>
