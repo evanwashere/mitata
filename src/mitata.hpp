@@ -3,20 +3,23 @@
 
 #include <map>
 #include <regex>
+#include <cmath>
+#include <chrono>
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <sstream>
 #include <numeric>
 #include <iostream>
 #include <algorithm>
+#include <functional>
 
 namespace mitata {
   typedef float f32; typedef double f64;
-  typedef int8_t i8; typedef uint8_t u8;
-  typedef int16_t i16; typedef uint16_t u16;
-  typedef int32_t i32; typedef uint32_t u32;
-  typedef int64_t i64; typedef uint64_t u64;
-  typedef __int128 i128; typedef unsigned __int128 u128;
+  typedef std::int8_t i8; typedef std::uint8_t u8;
+  typedef std::int16_t i16; typedef std::uint16_t u16;
+  typedef std::int32_t i32; typedef std::uint32_t u32;
+  typedef std::int64_t i64; typedef std::uint64_t u64;
 
   namespace lib {
     struct k_stats {
@@ -217,11 +220,10 @@ namespace mitata {
       for (auto o = 0; o <= poffset; o++) bins[std::round((stats.samples[o] - min) / step)]++;
 
       return {
-        .min = min, .max = max,
-        .step = step, .bins = bins, .steps = steps,
-        .outliers = stats.samples.size() - 1 - poffset,
-        .peak = *std::max_element(bins.begin(), bins.end()),
         .avg = clamp(0, (u64)std::round((stats.avg - min) / step), size - 1),
+        .peak = *std::max_element(bins.begin(), bins.end()),
+        .outliers = stats.samples.size() - 1 - poffset,
+        .min = min, .max = max, .step = step, .bins = bins, .steps = steps,
       };
     }
 
