@@ -12,6 +12,7 @@
 #include <numeric>
 #include <iostream>
 #include <algorithm>
+#include <functional>
 
 namespace mitata {
   typedef float f32; typedef double f64;
